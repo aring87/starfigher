@@ -251,6 +251,10 @@ kbd { padding:.22em .45em; border:1px solid #415166; background:#11192a; color:#
 .profile-delete { width:100%; padding:.35rem .4rem; border:0; background:#120c15; color:#a46678; font-size:.48rem; letter-spacing:.12em; }
 .profile-delete:not(:disabled):hover { color:#ff6b91; background:#24101a; box-shadow:inset 0 0 14px #ff3d811a; }
 .profile-delete:disabled { color:#384453; background:#080d15; cursor:not-allowed; }
+.profile-slot.damaged { opacity:1; border-style:dashed; border-color:#8a4a5c; }
+.profile-slot.damaged b { color:#ff9fb2; }
+.profile-slot-row.damaged .profile-select:disabled { color:#5d6b79; background:#080d15; cursor:not-allowed; }
+.profile-slot-row.damaged .profile-delete:not(:disabled) { color:#ffb3c2; }
 .profile-actions { display:flex; align-items:center; justify-content:center; gap:.7rem; }
 .profile-actions .secondary { min-width:150px; }
 .profile-actions .new-game-button { margin-top:0; }

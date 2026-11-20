@@ -3,7 +3,11 @@
 // Save/load corruption fuzzer. Real game code in the Node test harness with seeded, reproducible damage to
 // stored saves. Never touches real browser storage or the real game folder's saves.
 //
-//   node tools/fuzz-save-load.cjs [--seed=168] [--cases=600] [--shard=1/1] [--out=artifacts/save-load-fuzz.json] [--verbose]
+//   node tools/fuzz-save-load.cjs [--seed=168] [--cases=600] [--batch=200] [--shard=1/1] [--out=artifacts/save-load-fuzz.json] [--verbose]
+//
+// Use --batch for anything over a few hundred cases: the test harness keeps every game it boots alive (about 7 MB per
+// case), so one long process reaches Node's 4 GB limit near 600 cases and can freeze a PC. --batch=N runs the cases in
+// child processes of N cases each and merges their reports. Do not run more than two shards at once.
 //
 // Each case boots a real game from a damaged store, then drives the menus, Garage, loot guide, Continue, a
 // new run and a save, and checks: no crash, no garbage on screen (NaN/undefined), finite data, sane storage
@@ -13,6 +17,30 @@ const root = path.resolve(__dirname, '..'), harness = path.join(__dirname, 'veri
 const arg = (name, fallback) => (process.argv.find(a => a.startsWith('--' + name + '=')) || '').split('=').slice(1).join('=') || fallback;
 const seed = Number(arg('seed', 168)), totalCases = Number(arg('cases', 600)), [shardIndex, shardCount] = arg('shard', '1/1').split('/').map(Number);
 const outFile = path.resolve(root, arg('out', 'artifacts/save-load-fuzz-report.json')), verbose = process.argv.includes('--verbose');
+const batchSize = Number(arg('batch', 0)), caseFrom = Number(arg('from', 0)), caseTo = Number(arg('to', totalCases));
+if (batchSize > 0 && !process.argv.includes('--child')) {
+  const { spawnSync } = require('node:child_process'), t0 = Date.now();
+  const merged = { seed, shard: `${shardIndex}/${shardCount}`, batch: batchSize, controls: [], cases: 0, failed: 0, groups: {}, stats: { unreadableSave: 0, continued: 0, newRunStarted: 0, emptyGarage: 0, byKind: {}, reasons: {} }, otherUnreadable: [] };
+  for (let start = 0, k = 0; start < totalCases; start += batchSize, k++) {
+    const end = Math.min(start + batchSize, totalCases), part = outFile.replace(/\.json$/, `.part${k}.json`);
+    fs.rmSync(part, { force: true });
+    const run = spawnSync(process.execPath, [__filename, `--seed=${seed}`, `--cases=${totalCases}`, `--shard=${shardIndex}/${shardCount}`, `--from=${start}`, `--to=${end}`, `--out=${part}`, '--child'], { stdio: ['ignore', 'ignore', 'inherit'] });
+    if (!fs.existsSync(part)) { console.error(`batch ${k} (cases ${start}-${end - 1}) produced no report (exit ${run.status})`); process.exit(3); }
+    const r = JSON.parse(fs.readFileSync(part, 'utf8')); fs.rmSync(part, { force: true });
+    if (!merged.controls.length) merged.controls = r.controls;
+    if (r.controls.some(c => c.failures.length)) { console.error('Undamaged saves fail; fix that before fuzzing.'); fs.writeFileSync(outFile, JSON.stringify({ ...merged, controls: r.controls }, null, 1)); process.exit(2); }
+    merged.cases += r.cases; merged.failed += r.failed;
+    for (const [key, group] of Object.entries(r.groups)) { const m = merged.groups[key] ||= { count: 0, stage: group.stage, message: group.message, stack: group.stack, examples: [] }; m.count += group.count; for (const e of group.examples) if (m.examples.length < 3) m.examples.push(e); }
+    for (const [key, value] of Object.entries(r.stats)) { if (typeof value === 'number') merged.stats[key] = (merged.stats[key] || 0) + value; else if (key === 'reasons') for (const [why, count] of Object.entries(value)) merged.stats.reasons[why] = (merged.stats.reasons[why] || 0) + count; else if (key === 'byKind') for (const [kind, v] of Object.entries(value)) { const m = merged.stats.byKind[kind] ||= { cases: 0, unreadable: 0, failed: 0 }; m.cases += v.cases; m.unreadable += v.unreadable; m.failed += v.failed; } }
+    merged.otherUnreadable.push(...(r.otherUnreadable || []).slice(0, 20));
+    console.log(`  cases ${start}-${end - 1}: ${r.cases} run, ${r.failed} failed (${Math.round((Date.now() - t0) / 1000)} s)`);
+  }
+  merged.seconds = Math.round((Date.now() - t0) / 1000); fs.writeFileSync(outFile, JSON.stringify(merged, null, 1));
+  console.log('stats: ' + JSON.stringify(merged.stats));
+  console.log(`\n${merged.cases} damaged saves tried (shard ${merged.shard}), ${merged.failed} produced failures, ${Object.keys(merged.groups).length} distinct problems, ${merged.seconds} s`);
+  for (const [key, group] of Object.entries(merged.groups).sort((a, b) => b[1].count - a[1].count)) console.log(`\n[${group.count}x] ${key}\n    e.g. ${group.examples[0].golden}: ${group.examples[0].mutation}\n    ${group.stack}`);
+  process.exit(merged.failed ? 1 : 0);
+}
 
 let support = fs.readFileSync(harness, 'utf8'); support = support.slice(0, support.indexOf('\ntest('));
 const isolated = new Module(harness, module); isolated.filename = harness; isolated.paths = Module._nodeModulePaths(__dirname);
@@ -30,18 +58,25 @@ function stockGarage(g) {
   for (const slot of ['weapon', 'armor', 'engine', 'pod']) { const item = api.garage.inventory.find(x => x.slot === slot); if (item) api.garage.equipped[slot] = item.id; }
   api.garage.materials = 137;
 }
+// Golden saves must be identical on every run, or a failing case number could not be reproduced: freeze the game's clock and randomness.
+let goldenCounter = 0;
+function seeded(g) {
+  g.sandbox.__fuzzSeed = (seed * 7919 + ++goldenCounter * 104729) >>> 0;
+  vm.runInContext('(()=>{let a=__fuzzSeed;Math.random=()=>{a=(a+0x6D2B79F5)>>>0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};Date.now=()=>1750000000000+Math.floor(Math.random()*1e6)})()', g.sandbox);
+  return g;
+}
 function goldenSaves() {
   const out = [];
   const snap = (label, g) => { g.api.saveProfile(); const entries = [...g.storage.entries()]; const slot1 = g.storage.get('starfighterProfileSlot1');
     if (slot1) { for (const [n, name] of [[2, 'ALPHA'], [3, 'BRAVO']]) { const copy = JSON.parse(slot1); copy.name = name; entries.push(['starfighterProfileSlot' + n, JSON.stringify(copy)]); } }
     out.push({ label, entries }); };
-  { const g = createGame(); snap('fresh-pilot', g); }
-  { const g = createGame(); stockGarage(g); snap('stocked-garage', g); }
-  { const g = createGame(); stockGarage(g); Object.assign(g.api.profile.progress, { missionsCleared: Array(10).fill(true), normalBossesDefeated: Array(10).fill(true), epicUnlocked: true, epicBossesDefeated: [3, 1], trainingComplete: true, introComplete: true, onboardingSeen: ['missile', 'bit', 'shield', 'delta', 'gear'] });
+  { const g = seeded(createGame()); snap('fresh-pilot', g); }
+  { const g = seeded(createGame()); stockGarage(g); snap('stocked-garage', g); }
+  { const g = seeded(createGame()); stockGarage(g); Object.assign(g.api.profile.progress, { missionsCleared: Array(10).fill(true), normalBossesDefeated: Array(10).fill(true), epicUnlocked: true, epicBossesDefeated: [3, 1], trainingComplete: true, introComplete: true, onboardingSeen: ['missile', 'bit', 'shield', 'delta', 'gear'] });
     Object.assign(g.api.profile.lifetime, { runs: 40, bestScore: 912345, waves: 120, kills: 5400, bosses: 90, epicBosses: 6, miniBosses: 80, playSeconds: 90000, gear: 300, exotics: 9, ritualsWon: 4, ritualsFailed: 2 });
     g.api.profile.history = Array.from({ length: 20 }, (_, i) => ({ date: 1.7e12 + i * 1e6, mode: ['story', 'rush', 'replay'][i % 3], result: i % 2 ? 'lost' : 'complete', duration: 600 + i, score: 1000 * i, wave: 1 + i % 10, kills: 50 + i, shotsFired: 900, chargedShots: 40, damageDealt: 12345, damageTaken: 3, shieldsLost: 2, evades: 5, weakspotsDestroyed: 12, miniBosses: 1, normalBosses: 1, epicBosses: 0, gearCollected: 4, commonDrops: 2, uncommonDrops: 1, rareDrops: 1, superDrops: 0, exoticDrops: 0, ritualsWon: 0, ritualsFailed: 0 }));
     snap('veteran-pilot', g); }
-  const run = (label, mode, segment, prepare) => { const g = createGame(); stockGarage(g);
+  const run = (label, mode, segment, prepare) => { const g = seeded(createGame()); stockGarage(g);
     if (mode === 'replay') g.api.profile.progress.missionsCleared[2] = true;
     prepare?.(g); g.api.start(mode, mode === 'replay' ? 3 : 1); if (g.api.state !== 'playing') throw new Error('golden run did not start: ' + label);
     g.api.player.inv = 1e6; for (let i = 0; i < 600; i++) g.api.update(1 / 120);
@@ -104,7 +139,9 @@ const GARBAGE = /\bNaN\b|undefined|\[object |Infinity/;
 function allIds() { return [...new Set([...fs.readFileSync(path.join(root, 'index.html'), 'utf8').matchAll(/\bid="([^"]+)"/g)].map(m => m[1]))]; }
 const IDS = allIds();
 function checkScreen(g) {
-  for (const id of IDS) { const el = g.document.getElementById('' + id); if (!el) continue; const text = String(el.textContent ?? '') + ' ' + String(el.innerHTML ?? ''); const m = text.match(GARBAGE); if (m) throw new Error(`Garbage text "${m[0]}" shown in #${id}: ${text.replace(/\s+/g, ' ').slice(0, 90)}`); }
+  // Names the player (or a damaged save) put there are shown as typed, so "undefined" as a pilot name is not a display fault.
+  const typed = [g.api.profile.name, g.api.garage?.cosmetics?.bayName, ...g.api.garage.inventory.map(i => i.name)].filter(v => typeof v === 'string' && GARBAGE.test(v));
+  for (const id of IDS) { const el = g.document.getElementById('' + id); if (!el) continue; let text = String(el.textContent ?? '') + ' ' + String(el.innerHTML ?? ''); for (const name of typed) text = text.split(name).join(''); const m = text.match(GARBAGE); if (m) throw new Error(`Garbage text "${m[0]}" shown in #${id}: ${text.replace(/\s+/g, ' ').slice(0, 90)}`); }
 }
 const finite = (v, what) => { if (!Number.isFinite(v)) throw new Error(`${what} is not a finite number (${JSON.stringify(v)})`); };
 function checkProfile(api) {
@@ -146,6 +183,15 @@ function exercise(entries, rawByKey) {
     });
   });
   guard('menu', () => { api.goMenu(); api.renderRunMenu(); api.renderProfileMenu(); });
+  // Every save the game refuses must be shown as damaged and be clearable, never passed off as an empty slot.
+  guard('damaged-slot-label', () => {
+    const rows = g.document.getElementById('profile-menu-slots').children.slice(-3);
+    for (const key of unreadableKeys) {
+      const slot = Number(key.slice(-1)) - 1, [label, actions] = rows[slot].children;
+      if (!/DAMAGED SAVE/.test(label.innerHTML) || !/damaged/.test(rows[slot].className)) throw new Error(`Slot ${slot + 1} holds an unreadable save but is shown as: ${label.innerHTML.slice(0, 60)}`);
+      if (!actions.children[0].disabled || actions.children[1].disabled) throw new Error(`Slot ${slot + 1}: a damaged slot must be locked for new games and clearable`);
+    }
+  });
   guard('menu-screen', () => checkScreen(g));
   guard('profile-shape', () => checkProfile(api));
   guard('mission-select', () => { api.openMissionSelect(); api.renderMissionSelect(); api.goMenu(); });
@@ -182,7 +228,7 @@ if (report.controls.some(c => c.failures.length)) { console.error('Undamaged sav
 const rand = rng(seed);
 for (let n = 0; n < totalCases; n++) {
   const golden = goldens[n % goldens.length], damaged = damage(golden, rand);
-  if (n % shardCount !== shardIndex - 1) continue;
+  if (n % shardCount !== shardIndex - 1 || n < caseFrom || n >= caseTo) continue;
   const raw = new Map(damaged.entries), failures = exercise(damaged.entries, raw); report.cases++;
   const info = failures.info || {}; const st = report.stats ||= { unreadableSave: 0, continued: 0, newRunStarted: 0, emptyGarage: 0, byKind: {} };
   for (const why of info.reasons || []) { st.reasons ||= {}; st.reasons[why] = (st.reasons[why] || 0) + 1; if (why === 'other') (report.otherUnreadable ||= []).push({ case: n, golden: golden.label, mutation: damaged.notes.join('; ').slice(0, 200) }); }

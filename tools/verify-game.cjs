@@ -349,7 +349,7 @@ function createGame(options = {}) {
     get muted(){return muted}, get wave(){return wave},
     get bossLabMini(){return bossLabMini}, get bossLab(){return bossLab}, get artInspection(){return artInspection},
     setTime(value){t=value}, setWave(value){wave=value}, setShake(value){shake=value},
-    makeBoss,presentBossDoctrine,renderProfileMenu,newGame,normalizeProfile,
+    makeBoss,presentBossDoctrine,renderProfileMenu,newGame,normalizeProfile,deleteProfile,activateProfile,damagedSlot,
     flushVictoryDelay(){const saved=victoryDelay;victoryDelay=null;saved?.run()},
     setRunTotals(nextScore,nextKills,nextElapsed){score=nextScore;kills=nextKills;runElapsed=nextElapsed},
   };
@@ -891,6 +891,21 @@ test('damaged numbers in a stored profile become safe values instead of NaN', ()
   view.api.renderGarage(); assert.match(view.find('#garage-run-stats').innerHTML, /NO SAVED COMBAT RECORD/); assert.doesNotMatch(view.find('#garage-run-stats').innerHTML, /undefined|NaN/);
 });
 
+test('damaged names and labels become readable defaults instead of [object Object]', () => {
+  const source = createGame(), stored = JSON.parse(JSON.stringify(source.api.profile)), real = JSON.parse(JSON.stringify(source.api.generateGear(1, 1, '', {})));
+  Object.assign(real, { name: { a: 1 }, source: ['x'], id: { b: 2 } });
+  stored.name = { __proto__: null, x: 1 }; stored.garage.cosmetics = { bayName: [1, 2] }; stored.garage.inventory = [real];
+  const loaded = createGame({ initialStorage: [['starfighterProfileSlot1', JSON.stringify(stored)]] }).api;
+  assert.equal(loaded.profile.name, 'PILOT 01'); assert.equal(loaded.garage.cosmetics.bayName, 'LAST SIGNAL BAY');
+  const [gear] = loaded.garage.inventory;
+  assert.ok(typeof gear.name === 'string' && gear.name.length > 0 && !/object/i.test(gear.name), 'gear name');
+  assert.ok(typeof gear.id === 'string' && gear.id !== '[object Object]', 'gear id'); assert.equal(gear.source, 'LEGACY CACHE');
+  // Real names are untouched: text stays, and a number is shown as its digits.
+  stored.name = 'ACE'; stored.garage.cosmetics = { bayName: 'HANGAR 9' }; stored.garage.inventory[0].name = 'My Blaster';
+  const kept = createGame({ initialStorage: [['starfighterProfileSlot1', JSON.stringify(stored)]] }).api;
+  assert.equal(kept.profile.name, 'ACE'); assert.equal(kept.garage.cosmetics.bayName, 'HANGAR 9'); assert.equal(kept.garage.inventory[0].name, 'My Blaster');
+});
+
 test('a last run with damaged fields still shows a readable summary', () => {
   const source = createGame(), stored = JSON.parse(JSON.stringify(source.api.profile));
   stored.lastRun = { date: 1, mode: 'story', wave: 'x', score: null, kills: [], normalBosses: {}, shotsFired: 'abc', commonDrops: 'abc' };
@@ -916,6 +931,65 @@ test('a stored garage that cannot be used is preserved, not silently replaced by
   // A profile that simply has no garage field (an old save) still opens normally.
   const { garage, ...old } = good; old.version = 5;
   assert.ok(createGame({ initialStorage: [['starfighterProfileSlot1', JSON.stringify(old)]] }).api.readProfileSlot(0));
+});
+
+test('the Profiles menu labels a damaged save instead of calling the slot empty, and can clear it', () => {
+  const damaged = '{"version":6,"name":"BROKEN","garage":"junk"}', click = { stopPropagation() {} };
+  const game = createGame({ initialStorage: [['starfighterProfileSlot2', damaged]] }), { api } = game;
+  // The test DOM keeps old rows when innerHTML is cleared, so only the newest three rows are the current menu.
+  const slots = () => game.find('#profile-menu-slots').children.slice(-3);
+  api.renderProfileMenu();
+  let [label, actions] = slots()[1].children, [select, remove] = actions.children;
+  assert.match(slots()[1].className, /damaged/); assert.doesNotMatch(slots()[1].className, /empty/);
+  assert.match(label.innerHTML, /SLOT 02 \/\/ DAMAGED SAVE/); assert.match(label.innerHTML, /KEPT UNTOUCHED/);
+  assert.equal(select.disabled, true); assert.match(select.textContent, /SLOT LOCKED/);
+  assert.equal(remove.disabled, false); assert.match(remove.textContent, /CLEAR DAMAGED SAVE/);
+  assert.match(slots()[0].className, /empty/); assert.match(slots()[2].className, /empty/);
+  assert.equal(game.find('#save-status').hidden, false, 'the session-only notice is shown while a save is being protected');
+  // Selecting a damaged slot explains itself and changes nothing.
+  const before = api.profile.name; label.onclick();
+  assert.equal(api.profile.name, before); assert.match(game.find('#profiles-status').textContent, /DAMAGED SAVE/);
+  // Declining the confirmation keeps the damaged text.
+  game.sandbox.confirm = () => false; remove.onclick(click);
+  assert.equal(game.storage.get('starfighterProfileSlot2'), damaged);
+  // Accepting clears it, frees the slot and removes the session-only notice.
+  game.sandbox.confirm = () => true; remove.onclick(click);
+  assert.equal(game.storage.get('starfighterProfileSlot2'), undefined);
+  assert.match(slots()[1].className, /empty/); assert.match(game.find('#profiles-status').textContent, /SLOT 2 CLEARED/);
+  assert.equal(game.find('#save-status').hidden, true);
+  [label, actions] = slots()[1].children; [select, remove] = actions.children;
+  assert.equal(select.disabled, false); assert.match(select.textContent, /CREATE NEW GAME/);
+});
+
+test('clearing a damaged save keeps the session-only notice when storage itself is failing', () => {
+  const damaged = '{"version":6,"name":"BROKEN","garage":"junk"}';
+  const game = createGame({ initialStorage: [['starfighterProfileSlot2', damaged]], failSet: true });
+  game.api.renderProfileMenu(); game.api.saveProfile();
+  game.sandbox.confirm = () => true; game.api.deleteProfile(1);
+  assert.equal(game.storage.get('starfighterProfileSlot2'), undefined);
+  assert.equal(game.find('#save-status').hidden, false);
+});
+
+test('a damaged first slot is cleared together with its legacy copies', () => {
+  const damaged = '{"version":6,"name":"BROKEN","garage":"junk"}';
+  const game = createGame({ initialStorage: [['starfighterProfileSlot1', damaged], ['starfighterProfile', damaged], ['starfighterGarage', '{}'], ['lastSignalBest', '99']] });
+  assert.equal(game.api.damagedSlot(0), true);
+  game.api.renderProfileMenu();
+  assert.match(game.find('#profile-menu-slots').children.slice(-3)[0].className, /damaged/);
+  game.sandbox.confirm = () => true; game.api.deleteProfile(0);
+  for (const key of ['starfighterProfileSlot1', 'starfighterProfile', 'starfighterGarage', 'lastSignalBest']) assert.equal(game.storage.get(key), undefined, key);
+  assert.equal(game.api.damagedSlot(0), false); assert.equal(game.find('#save-status').hidden, true);
+  assert.equal(game.api.profile.name, 'PILOT 01');
+});
+
+test('a new pilot is never placed in a slot that holds a damaged save', () => {
+  const damaged = '{"version":6,"name":"BROKEN","garage":"junk"}', first = createGame(); first.api.saveProfile();
+  const game = createGame({ initialStorage: [...first.storage, ['starfighterProfileSlot2', damaged]] });
+  game.api.newGame();
+  assert.equal(game.api.profile.name, 'PILOT 03');
+  assert.equal(game.storage.get('starfighterProfileSlot2'), damaged);
+  assert.equal(game.api.storage.sessionOnly, true, 'the damaged slot is still being protected');
+  assert.ok(game.storage.get('starfighterProfileSlot3'), 'the new pilot was really saved');
 });
 
 test('fixed-step simulation advances equally at 30, 60, and 144 rendered FPS', () => {

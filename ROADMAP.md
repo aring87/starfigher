@@ -18,7 +18,7 @@ All six original polish priorities (table below) are implemented. What remains i
 
 ### Phase 2: fixes from that feedback
 
-- Fix blockers, save and load problems, and first-run confusion. **Save/load audit done in v169** (2,400 deliberately damaged saves; seven defects fixed, four regression tests; see [SAVE_LOAD_AUDIT.md](SAVE_LOAD_AUDIT.md)). Real friend-reported blockers and first-run confusion are still to come from Phase 1.
+- Fix blockers, save and load problems, and first-run confusion. **Save/load audit done in v169 and v170** (thousands of deliberately damaged saves; eight defects fixed, damaged saves now shown and clearable in Profiles, nine regression tests; see [SAVE_LOAD_AUDIT.md](SAVE_LOAD_AUDIT.md)). Real friend-reported blockers and first-run confusion are still to come from Phase 1.
 - Tune difficulty only from human data, not before.
 - Fix controller and audio issues. New sounds come with ready-to-use ElevenLabs and Suno prompts.
 - Resume performance work only if Phase 1 shows stutter.
