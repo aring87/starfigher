@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Native menu navigation checks</title>
+<style>body{background:#081420;color:#dcedf5;font:15px system-ui;padding:22px}button{padding:8px}#fixture{position:relative;width:700px;height:340px;background:#122638;margin-top:15px}#fixture button{position:absolute;width:90px;height:32px}#results{white-space:pre-wrap}dialog{background:#142b3b;color:#fff}dialog button{margin:4px}.scroll{position:absolute;overflow-y:auto;width:130px;height:90px}summary{padding:8px}</style>
+<script src="../input-bindings.js?v=152"></script><script src="../controls-ui.js?v=152"></script></head>
+<body><h1>Native menu navigation checks</h1><p>Disposable DOM fixtures; no pilot storage or physical controller input.</p><button id="run-checks">RUN NATIVE CHECKS</button><output id="results"></output><div id="fixture"></div><dialog id="editor"></dialog>
+<script>
+'use strict';
+const UI=window.StarfighterControlsUI,B=window.StarfighterBindings,fixture=document.querySelector('#fixture'),editor=document.querySelector('#editor'),results=[];
+function expect(value,message){if(!value)throw Error(message)}
+function same(actual,expected,message){expect(actual===expected,`${message}: expected ${expected?.id||expected}, got ${actual?.id||actual}`)}
+function add(tag,parent=fixture,attrs={}){const el=document.createElement(tag);Object.assign(el,attrs);parent.append(el);return el}
+function button(id,x,y,parent=fixture){const el=add('button',parent,{id,textContent:id});el.style.left=x+'px';el.style.top=y+'px';return el}
+function test(name,fn){fixture.replaceChildren();try{fn();results.push({name,passed:true})}catch(error){results.push({name,passed:false,error:error.message})}finally{if(editor.open)editor.close();editor.replaceChildren()}}
+document.querySelector('#run-checks').onclick=()=>{
+results.length=0;
+test('Default focus ignores disabled, hidden, inert and disabled fieldset actions',()=>{
+ const disabled=button('disabled',0,0);disabled.disabled=true;disabled.className='primary';
+ const hidden=button('hidden',100,0);hidden.hidden=true;
+ const inert=add('div',fixture,{inert:true});button('inert',0,40,inert);
+ const field=add('fieldset',fixture,{disabled:true});button('fieldset-disabled',0,80,field);
+ const good=button('visible-primary',250,120);good.className='primary';UI.focusFirst(fixture);same(document.activeElement,good,'Focus belongs to a visible enabled action');
+});
+test('Closed disclosure content cannot steal focus; summary remains navigable',()=>{
+ const details=add('details'),summary=add('summary',details,{textContent:'DETAILS',id:'summary'});button('closed-action',0,60,details);UI.focusFirst(fixture);same(document.activeElement,summary,'Closed details expose only summary');
+});
+test('Vertical navigation follows the current scroll column and reveals deeper rows',()=>{
+ const region=add('div',fixture,{className:'scroll'});region.style.left='10px';region.style.top='10px';
+ const first=button('row-one',5,0,region),second=button('row-two',5,55,region),third=button('row-three',5,110,region),last=button('row-four',5,165,region);button('outside-action',210,70);
+ first.focus();UI.navigate(fixture,'down');same(document.activeElement,second,'Second row');UI.navigate(fixture,'down');same(document.activeElement,third,'Deeper row');UI.navigate(fixture,'down');same(document.activeElement,last,'Last row');expect(region.scrollTop>90,'Focused row must scroll into view');
+});
+test('Horizontal navigation ignores controls clipped below another column',()=>{
+ const active=button('left',10,20),region=add('div',fixture,{className:'scroll'});region.style.left='150px';region.style.top='10px';button('clipped',5,140,region);const visible=button('right',320,20);active.focus();UI.navigate(fixture,'right');same(document.activeElement,visible,'Visible adjacent action');
+});
+test('An empty inventory region can receive focus without being activated',()=>{
+ const empty=add('div',fixture,{id:'empty-column',tabIndex:0});empty.style.cssText='position:absolute;left:10px;top:20px;width:100px;height:70px';let clicks=0;empty.onclick=()=>clicks++;const action=button('neighbor',160,35);UI.focusFirst(fixture);same(document.activeElement,empty,'Empty region focus');UI.activate(fixture);same(clicks,0,'Confirm does not invent an action');UI.navigate(fixture,'right');same(document.activeElement,action,'Leave empty region');
+});
+test('Select adjustment skips disabled options and emits events only for a change',()=>{
+ const select=add('select');for(const [value,disabled]of[['one',false],['disabled',true],['three',false]])add('option',select,{value,textContent:value,disabled});let changes=0,inputs=0;select.onchange=()=>changes++;select.oninput=()=>inputs++;select.focus();UI.navigate(fixture,'right');same(select.value,'three','Disabled option skipped');UI.navigate(fixture,'right');same(changes,1,'No duplicate change at limit');same(inputs,1,'One input for one adjustment');UI.navigate(fixture,'left');same(select.value,'one','Reverse adjustment');
+});
+test('Decimal sliders reach their bounds without repeated save events',()=>{
+ const slider=add('input',fixture,{type:'range',min:'0',max:'.3',step:'.1',value:'0'});let changes=0;slider.onchange=()=>changes++;slider.focus();for(let i=0;i<5;i++)UI.navigate(fixture,'right');same(slider.value,'0.3','Exact upper bound');same(changes,3,'Only three real changes');
+});
+function controls(){let bindings=B.normalize(B.defaults),closed=0;const ui=UI.create({host:editor,getBindings:()=>bindings,onChange:next=>{bindings=B.normalize(next);return{saved:true}},onClose:()=>closed++});ui.open();return{ui,get bindings(){return bindings},get closed(){return closed}}}
+test('Changing the binding tab keeps focus on the selected tab after rebuilding it',()=>{
+ const c=controls();document.querySelector('#controls-tab-controller').click();same(document.activeElement,document.querySelector('#controls-tab-controller'),'Controller tab focus');same(document.activeElement.getAttribute('aria-pressed'),'true','Selected tab');c.ui.close();
+});
+test('Escape cancels key capture, restores its original row and leaves Controls open',()=>{
+ const c=controls(),before=JSON.stringify(c.bindings),id='binding-keyboard-fire-0';document.getElementById(id).click();same(document.activeElement.textContent,'CANCEL','Capture cancellation is reachable');document.dispatchEvent(new KeyboardEvent('keydown',{code:'Escape',bubbles:true,cancelable:true}));same(document.activeElement,document.getElementById(id),'Original binding row focus');expect(editor.open,'Editor remains open');same(JSON.stringify(c.bindings),before,'Binding unchanged');c.ui.close();
+});
+test('Assigning a key restores focus to its rebuilt binding button',()=>{
+ const c=controls(),id='binding-keyboard-fire-0';document.getElementById(id).click();document.dispatchEvent(new KeyboardEvent('keydown',{code:'KeyK',bubbles:true,cancelable:true}));same(c.bindings.keyboard.fire[0],'KeyK','New binding');same(document.activeElement,document.getElementById(id),'Rebuilt binding focus');c.ui.close();
+});
+test('Controller B remains bindable during capture and restores its row after assignment',()=>{
+ const c=controls();document.querySelector('#controls-tab-controller').click();const id='binding-controller-fire-0';document.getElementById(id).click();c.ui.captureButtons([]);c.ui.captureButtons([1]);same(c.bindings.controller.fire[0],1,'B assigned');same(document.activeElement,document.getElementById(id),'Controller binding focus');expect(editor.open,'Capture does not go Back');c.ui.close();
+});
+test('Closing during capture invokes the return callback once and clears capture',()=>{
+ const c=controls();document.getElementById('binding-keyboard-fire-0').click();c.ui.close();same(c.closed,1,'One close callback');same(c.ui.isCapturing(),false,'Capture cleared');same(editor.open,false,'Editor closed');
+});
+document.querySelector('#results').textContent='\n'+results.map(r=>(r.passed?'PASS ':'FAIL ')+r.name+(r.error?' — '+r.error:'')).join('\n')+`\n${results.filter(r=>r.passed).length}/${results.length} passed`;
+fixture.replaceChildren();
+};
+</script></body></html>

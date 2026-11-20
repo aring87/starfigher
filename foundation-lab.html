@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101b">
+  <title>Starfighter — Build Foundation</title>
+  <link rel="stylesheet" href="foundation-lab.css?v=1">
+</head>
+<body>
+  <main>
+    <header class="masthead">
+      <div><p class="eyebrow">STARFIGHTER / DESIGN WORKBENCH</p><h1>A clearer foundation.</h1><p class="lead">Gear defines your ship. Three run perks shape your campaign.</p></div>
+      <a class="back" href="./?v=159">Return to the game ↗</a>
+    </header>
+    <p class="prototype-note"><strong>Replacement prototype.</strong> This workbench uses temporary state only. It does not read or change your pilot, inventory or checkpoint. These rules have not replaced the live campaign.</p>
+    <div class="principles" aria-label="Progression model">
+      <article><span>01 / PERMANENT</span><h2>Rolled gear and sets</h2><p>Four slots. Each item has a defining effect, one or two random stat rolls, and a gear-set family.</p></article>
+      <article><span>02 / THIS RUN</span><h2>Three active perks</h2><p>No ranks or prerequisite tree. Fill three slots, then replace a perk or keep your build.</p></article>
+      <article><span>03 / IN FLIGHT</span><h2>Tools and recovery</h2><p>Pickups supply Force patterns, missiles, Bits and shields. Minibosses offer a recovery service.</p></article>
+    </div>
+    <section class="panel" aria-labelledby="gear-title">
+      <div class="section-title"><div><p class="eyebrow">PERMANENT LOADOUT</p><h2 id="gear-title">Roll gear. Build a set.</h2></div><button id="reset-build" class="quiet" type="button">Reset example</button></div>
+      <p class="section-note">Keep the hunt for better rolls. Common items have one rolled stat; other rarities have two. Higher rarity improves the roll floor while stat caps stay fixed. This workbench lets you choose a set and intrinsic to compare builds; it is not the campaign's drop system.</p>
+      <div class="presets"><button type="button" data-preset="charge">Vanguard charge build</button><button type="button" data-preset="intercept">Aegis interception build</button><button type="button" data-preset="split">Two-set build</button></div>
+      <div id="gear-slots" class="gear-grid"></div>
+      <div id="pair-summary" class="pair-summary" aria-live="polite"></div>
+      <details class="rules"><summary>See gear-set bonuses and stat limits</summary><div id="pair-catalogue" class="pair-grid"></div><div id="affix-limits" class="affix-limits"></div></details>
+    </section>
+    <section class="panel" aria-labelledby="perk-title">
+      <div class="section-title"><div><p class="eyebrow">ONE REWARD SYSTEM / APEX VICTORIES</p><h2 id="perk-title">A small run perk track.</h2></div><span id="perk-count" class="counter"></span></div>
+      <p class="section-note">Each apex offers three unowned perks. These six cards show the whole catalogue for review. At three active perks, a new one replaces an existing choice.</p>
+      <div id="active-perks" class="active-perks"></div>
+      <div id="perk-catalogue" class="perk-grid"></div>
+      <form id="replacement" class="replacement" hidden>
+        <div><strong id="replace-title"></strong><label for="replace-perk">Replace one active perk</label><select id="replace-perk"></select></div>
+        <div class="replacement-actions"><button type="submit">Replace perk</button><button type="button" id="cancel-replace" class="quiet">Keep current build</button></div>
+      </form>
+      <p id="build-status" class="status" role="status"></p>
+    </section>
+    <section class="panel" aria-labelledby="test-title">
+      <div class="section-title"><div><p class="eyebrow">TRY THE RULES</p><h2 id="test-title">Every benefit has a trigger.</h2></div><button type="button" id="reset-mission" class="quiet">Reset test mission</button></div>
+      <div id="run-readout" class="run-readout" aria-live="polite"></div>
+      <div class="test-grid">
+        <div><h3>Combat events</h3><div class="event-buttons">
+          <button type="button" data-event="coreBreak">Break a core</button><button type="button" data-event="forceBlock">Force blocks a shot</button><button type="button" data-event="bitBlock">Bit blocks a shot</button><button type="button" data-event="shieldPickup">Collect a shield</button><button type="button" data-event="surplusPickup">Collect a surplus tool</button><button type="button" data-event="combatPickup">Collect a new tool</button><button type="button" data-hit="projectile">Take a bullet hit</button><button type="button" data-hit="contact">Take a contact hit</button>
+        </div><p class="small">The test starts one hull below maximum, with one shield plus gear bonuses. Event buttons demonstrate resource rules, not enemy timing or a full combat simulation.</p></div>
+        <div><h3>Miniboss service <span>Choose once this mission</span></h3><div class="event-buttons"><button type="button" data-service="repair">Repair 1 hull</button><button type="button" data-service="shield">Add 1 shield</button><button type="button" data-service="dose">Add 12% Delta charge</button></div><h3 class="mission-actions">End of mission</h3><div class="event-buttons"><button type="button" id="apex-clear">Clear the apex</button><button type="button" id="next-mission" class="quiet">Next mission</button></div><p class="small">A new mission rearms once-per-mission effects. It does not refill hull, shields or Delta charge.</p></div>
+      </div>
+      <p id="event-result" class="event-result" role="status">Choose gear and perks, then try an event.</p>
+    </section>
+    <details class="panel elements" id="elements-panel">
+      <summary><span><span class="eyebrow">FUTURE EXPANSION</span><strong>Elements without loadout traps</strong></span><span class="tag">PREVIEW ONLY</span></summary>
+      <p>Weapon pattern and damage element are separate choices. Red, blue and yellow Force crystals keep their existing firing patterns. Elemental damage is switched off by default, including in this preview.</p>
+      <label class="toggle"><input id="enable-elements" type="checkbox"> Enable future elemental rules in this workbench</label>
+      <div class="damage-controls">
+        <label>Damage source<select id="damage-source"><option value="fighter">Fighter cannon</option><option value="force">Force shot</option><option value="bit">Defense Bit</option><option value="missile">Missile</option><option value="pod-contact">Force contact</option><option value="delta">Delta (scripted damage)</option></select></label>
+        <label>Element<select id="damage-element"><option value="neutral">Neutral</option><option value="heat">Heat</option><option value="ion">Ion</option><option value="cryo">Cryo</option></select></label>
+        <label>Target region<select id="damage-region"><option value="regular">Regular enemy</option><option value="armor">Boss armor</option><option value="core">Exposed boss core</option></select></label>
+        <label>Target weakness<select id="target-weakness"><option value="heat">Heat</option><option value="ion">Ion</option><option value="cryo">Cryo</option><option value="neutral">None</option></select></label>
+        <label>Target resistance<select id="target-resistance"><option value="ion">Ion</option><option value="heat">Heat</option><option value="cryo">Cryo</option><option value="neutral">None</option></select></label>
+      </div>
+      <div class="damage-flags"><label><input type="checkbox" id="damage-charged"> Full fighter charge (×8 base)</label><label><input type="checkbox" id="damage-rear"> Rear-mounted Force shot</label><label><input type="checkbox" id="damage-shielded" checked> Shield remaining</label><label><input type="checkbox" id="target-protected"> Protected arrival / transition</label></div>
+      <output id="damage-readout" class="damage-readout" aria-live="polite"></output>
+      <p class="small">100 incoming damage before equipment, or 800 for a fully charged fighter shot. Weakness ×1.20; resistance ×0.85; neutral ×1.00. No immunities. Boss armor still takes one quarter of exposed-core damage before gear bonuses. Delta keeps its scripted amount and does not receive gear or elemental bonuses. No status effects are implemented.</p>
+    </details>
+    <footer><p>Kept: random gear rolls, item intrinsics and two-/four-piece set bonuses. Simplified: Power scaling, a second set of pair bonuses, and separate Module + Doctrine stacks.</p><p>Existing campaign saves remain in the current game until a tested cutover preserves their rolled gear, unlocks and checkpoint rules.</p></footer>
+  </main>
+  <script src="foundation.js?v=1"></script><script src="foundation-combat.js?v=1"></script><script src="foundation-lab.js?v=1"></script>
+</body>
+</html>

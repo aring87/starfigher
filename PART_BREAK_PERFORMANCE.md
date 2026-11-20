@@ -1,0 +1,129 @@
+# Native fragment capture — v162
+
+Part breaks now read and scan a conservative rectangle around the actual painted sprite layer instead of the entire 1024×1024 capture canvas. This continues the original roadmap's performance work. The v159 friend package stays frozen.
+
+## Implementation
+
+The capture temporarily records the destination corners of each prepared sprite draw through its actual Canvas transform. That includes native animation, articulation, registration, rotation and scale. A four-pixel sampling guard encloses the painted area. The alpha scan translates its result back into full-canvas coordinates before applying the original threshold and two-pixel fragment padding.
+
+Unsupported raster writes, unknown/spatial filters, shadows or invalid/empty bounds retain the old full-canvas readback. All temporary paint wrappers restore on success or exceptions.
+
+Only the falling fragment's readback and scan change. Prepared body/part artwork, source alpha, chunk placement, velocities, spin, smoke, lifetimes, hitboxes, damage, shared supports and delayed-texture snapshots remain intact. Bloodstar retains its separate authored fragment path. No enemy-body clipping or new cutout artwork is introduced.
+
+## Real-art comparison
+
+The private browser review repaints the frozen v161 emitter and current emitter at identical poses with identical seeded emission randomness. It compares exact RGBA bytes, chunk dimensions, local bounds/center, world position, velocities and detachment flags.
+
+- Quick pass: **294 / 294 exact outputs** across all 36 modular encounter phases.
+- Complete repeat pass: **8,448 / 8,448 exact outputs**, including all sixteen authored mini cells, 32 native/intermediate pose samples for other encounters, extreme articulation, Reduced Motion and already-broken neighboring groups.
+- Pixel reads across the full matrix: **8,858,370,048 → 2,465,525,940**, a **72.167% reduction**. The largest new sample reads 391,875 pixels, versus 1,048,576 previously.
+- In this browser's sequential capture test, whole-emission median time changed from **4.3 ms to 2.4 ms**, and p95 from **5.7 ms to 3.5 ms**. These include native painting, readback, scan and chunk creation. They are not whole-game frame times, player success rates or a target-machine guarantee.
+
+An initial full run reported an RGBA mismatch in one Void Leviathan tail capture while its crop and placement matched. It did not recur in twelve isolated trials (baseline/self, candidate/self and cross-version comparisons all exact), or in the complete 8,448-case repeat. Its cause was not established. The initial report and controlled repeats are retained alongside the passing repeat; the comparison threshold was never relaxed.
+
+## Native regressions
+
+Eleven focused groups verify draw overloads, transformed bounds, negative dimensions, clipping guards, fallbacks, method restoration, transparent captures and alpha/crop origin math. Native destruction runtime (ten groups), detachable-part behavior (ten), inspector queues (two), Flight School integration (28), and core game checks (141) pass.
+
+The older detachable-part test had stale assumptions: it accepted only original boss/miniboss path prefixes and expected runtime hole cutting. The frozen v161 source reproduced that failure. The test now checks the exact registered authored part or ownership mask, omitted detached layers, intact body visibility and finite articulated transforms. It retains shared-support, collider, phase, fragment motion/expiry and solid-reactor checks.
+
+## Reproduce and evidence
+
+- `node tools/verify-fragment-readback-v162.cjs`
+- `node tools/verify-destruction-runtime.cjs`
+- `node tools/verify-detachable-parts.cjs`
+- `node tools/verify-fragment-inspector.cjs`
+- `python tools/build-fragment-readback-preview.py`, then use Run Quick / Run Full in the [private real-art comparison](http://127.0.0.1:8765/artifacts/fragment-readback-preview.html?v=162).
+
+The comparison uses temporary memory storage, staged encounters and frozen native poses. Its diagnostic code is excluded from distribution. [Summary](artifacts/part-break-v162-summary.json), [passing full matrix](artifacts/fragment-readback-v162-browser-full.json), [initial matrix](artifacts/fragment-readback-v162-browser-full-initial.json), [isolated controls](artifacts/fragment-readback-v162-void-forensics.json) and [proof](artifacts/fragment-readback-v162-proof.png) retain the measured source hashes.
+
+Human campaign difficulty, physical-controller feel, audio listening and sustained target-device frame times remain open. This pass reduces a demonstrated synchronous part-break workload; it does not close every roadmap validation gate.
+
+## Sustained browser follow-up — v165
+
+The v164 production source completed 52 staged browser scenarios: all 38 encounter phases, six representative phases each in Clear Combat and Reduced Motion, repeated heavy effect bursts and an actor-free drain. It ran 17,413 native updates and 19,187 real draws over 145.108 simulated seconds / 149.009 wall seconds without visibility interruptions. Part breaks use direct diagnostic damage and a 1000-hull safety meter; these are not legal-hit, player-difficulty or complete-campaign results. Audio is muted.
+
+Particles reached their 700 cap, debris 100, material palettes 256 and destruction caches 4 sources / 8 composites. All eight tracked transient arrays were empty after the actor-free drain. No browser warnings/errors appeared. This establishes bounded sampled collections and cleanup, not measured total heap/GPU memory or performance on other computers. [Initial browser report](artifacts/runtime-v164-browser-initial.json) retains the source hash and per-phase measurements.
+
+The review exposed first-use rendering stalls, especially after armor breaks on Void Leviathan and Prism Warden. Focused cold/repeat profiles isolate palette readback work from simulation. In the original profile, post-break first-visit drawing had median/p95 of 28.2/54.3 ms for Void and 21.3/30.6 ms for Prism; repeated warmed poses were much cheaper. These are synchronous JavaScript/Canvas submission measurements with diagnostic overhead, not completed GPU frame times or FPS. [Focused baseline](artifacts/boss-render-v164-profile.json) retains the raw frames, scene setup and direct break event.
+
+**The installed v165 change is limited to the palette algorithm.** It writes directly into the existing typed arrays and skips zero-weight texels before hue/scoring work. Positive-weight Float32 intermediates, segmentation, native opacity, returned layers, canvas backends and cache limits stay intact. It removes three temporary JavaScript arrays per retained texel. `destruction.js` remains byte-identical to v164; no mirror cache or alternative rendering backend is installed. Combat, gear, saves, field timing and the v159 friend package remain unchanged.
+
+`node tools/verify-palette-preparation-v165.cjs --verify-current` extracts the actual production function and checks its helpers against the frozen baseline. It passes **812 exact current-production layer comparisons**, plus 812 direct-write control comparisons, across 116 input patches (90 decoded native PNG patches) and seven hue/lighting configurations. No input mutates. The combined comparison covers 194,568,192 layer bytes. In 48 alternating-order Node/V8 batches after warmup, twelve-patch median preparation changed from 5.694 to 5.113 ms, about 10.2%; p95 changed from 8.047 to 6.666 ms. This excludes canvas readback/drawing and does not resolve the larger first-use hitch. [Production verification](artifacts/palette-preparation-v165-verification.json) and [console](artifacts/palette-preparation-v165-production-console.txt) retain exact results.
+
+Private compositor trials are retained for diagnosis, not included in the game. Readback-friendly compositor contexts reduced some readback cost but changed native edge/alpha pixels; the 60-case cancelled comparison is [preserved](artifacts/composite-v164-prepared-candidate-failed.json). Replacing world surfaces with raster copies also failed complete-body comparisons ([report](artifacts/composite-v164-raster-copy-body-quick.json)). A palette-only mirror preserved all 1,167 atlas/body outputs in a [full strict comparison](artifacts/composite-v164-readable-mirror-full.json), but its [timing profile](artifacts/boss-render-v164-readable-mirror-candidate.json) did not improve stalls. The final materialized mirror passed its [18-body quick check](artifacts/composite-v164-materialized-mirror-body-quick.json), but likewise failed timing acceptance ([profile](artifacts/boss-render-v164-materialized-mirror-candidate.json)). None of these cache/backend variants ships. The first full comparator's body subtotal displayed zero because raw encounter kinds overwrote its category field; actual rows contain 165 atlas and 1,002 body cases. Its total and strict pass/fail results were correct, and the QA counter is corrected in the builder.
+
+Production v165 game SHA256: `e285386ecb4b815d88820ab15210261d7c73428960e25c7d74006ddf3d64ea27`. Unchanged destruction module SHA256: `b3cab8b9f7e8cb478ca17a795ed9dd0624bf7537751cf37b2e81c208544a08a0`. Frozen sources are `artifacts/palette-v164-baseline-game.js` and `artifacts/readback-v164-baseline-destruction.js`.
+
+The installed source also passes **141 core checks** (232 asset references) and **28 Flight School integration checks**. Its independent browser profile completes both phase-two bosses over 20.748 wall seconds with 2,402 native updates, 3,009 draws, no interruptions and no console warnings/errors. [Installed-source profile](artifacts/boss-render-v165-production-profile.json), [browser console](artifacts/boss-render-v165-browser-console.json) and [summary](artifacts/polish-v165-summary.json) retain that evidence. The [art proof](artifacts/boss-render-v165-art-proof.png) comes from a separate stopped screenshot run and is not used for timing. The larger first-use readback hitch remains open; no whole-game frame-rate gain is claimed.
+
+## First-use palette readback batching — v166
+
+**Installed change.** After an armor part breaks, an integrated late main boss (Void Leviathan, Prism Warden and the other late bosses) or secret epic paints its native socket materials for the first time. v165 sampled every cold socket with its own 96×96 canvas and its own `getImageData`. v166 collects the missing samples of one body paint (2–16 tiles; otherwise the original single path runs), rasterizes **each tile in its own new 96×96 canvas exactly as before**, copies the finished tiles at integer offsets into **one new strip canvas**, and reads that strip once. The batch only supplies raw RGBA to the existing palette miss path: palette hit/miss/LRU order, the three-decimal cache key, the 256-entry cap, the palette algorithm, the original GPU body/fragment compositor and `destruction.js` are unchanged. Prefetch starts right after the original body `drawImage` and filter reset, before the socket loop, preserving the v165 body-then-material read order, and a throwing paint restores the caller's scope through `try/finally`. No canvas outlives a call, so no sampler state, clip or saved context can leak between batches.
+
+**Two earlier private designs were rejected on evidence** (their sources and reports are preserved under `artifacts/v166-b4f64a-evidence/` and `artifacts/v166-e274d0e6-evidence/`):
+
+1. *Clipped strip drawn in place* (candidates b4f64a/e274d0e6). Its first strict full run was 1,335/1,342 exact. Five rows had **real palette-input differences** (up to 4,433 world bytes, channel difference 20), all repeatable against themselves. A seeded fuzz of 4,320 perturbed real (asset, rect) tiles found 9 tiles that differ from a plain single read (max channel difference 21) at tile offsets above zero; a horizontal strip failed 42 (max 255) and a 128-row stride 15. Tile index 0 never differed, so the *destination offset* inside a taller canvas, not the clip, changes sampling in rare geometries.
+2. *Long-lived scratch canvas, tiles copied into the strip* (candidate 6b02d65b). Exact in the fuzz, but in the real renderer every intact (image-sourced) tile after one broken-state (composite-canvas-sourced) tile came out wrong (quick run 117/160). A fresh scratch canvas per batch or per tile fixed it; a fresh strip alone did not. The browser-internal mechanism is **not established**; only the effect and the cure were measured.
+
+The two corrections requested at the start of this pass (per-tile `try/finally` around save/clip/draw/restore, and prefetch after the body draw) are superseded or satisfied: placement is as requested, and the clip was removed entirely so there is nothing to leak.
+
+**Correctness evidence for the installed source** (`game.js` SHA256 `041e478acff80ce76787d8a84a9d6cb8db31082968217e7a89c274df600617e1`):
+
+| Check | Result |
+| --- | --- |
+| `node tools/verify-palette-readback-batch-v166.cjs` | 13/13 contracts. The expanded suite fails 3 checks on the clipped candidate and 4 on the reused-scratch candidate. |
+| `node tools/verify-game.cjs` / `verify-training-integration.cjs` | 141 passed, 0 failed (232 asset references) / 28 passed, 0 failed |
+| `node tools/verify-palette-preparation-v165.cjs --verify-current` | 1,624 exact comparisons, 194,568,192 layer bytes (palette algorithm unchanged) |
+| Seeded layout fuzz, real `prefetchNativeMaterialReadbacks` | 0 of 4,320 tiles differ from a plain read |
+| Intact → broken → intact sequence that broke 6b02d65b | 10/10 steps exact |
+| Quick pixel comparison (installed `game.js`) | 160/160 exact |
+| Full strict pixel comparison, default GPU-backed canvases | Private candidate runs: 1,341/1,342 twice. Installed `game.js`: 1,339/1,342 (1–3 one-byte rows; the frozen v165 also differs from itself there). |
+| **Full strict pixel comparison, every 2D canvas CPU-backed** (`--world cpu-all`) | **1,342/1,342 exact in 4 of 4 runs** on the installed `game.js` (5,368 comparisons, 0 palette discrepancies). With only the comparison canvas CPU-backed: 1,342, 1,342 and 1,341. |
+| Palette input/layer/metadata/mutation bytes, all full runs | **0 discrepancies** across 3,282 build pairs (120,987,648 input bytes, 393,209,856 layer bytes) |
+
+**The one-byte world-pixel differences are GPU raster noise, not the batching.** On the default GPU-backed canvases every failing row differs in one world byte by one level (maximum channel difference 1): Void phase 1 at the same pixel in every run and, in the installed run, also Prism phase 1 pose 1 and Epic 1 phase 1 hit. Palette inputs and layers are identical in all of them. A 12-trial strict recheck of those rows (36 trials, 108 self/cross controls, 0 palette control failures) found the variation in both renderers: the frozen v165 source differed from its own repeat in 3 of 12 Void trials, and the candidate from its own repeat in 2/12 there, plus 2/12 and 1/12 in Prism and Epic where the baseline showed 0/24. Making the comparison canvas CPU-backed removed most of it (the same recheck became 36/36 exact with 0/108 control failures; full runs 1,342, 1,342 and 1,341, the last being Void phase 1 again with the *baseline* differing from itself). Making **every** 2D canvas on the page CPU-backed, so the game, destruction module and samplers all rasterize deterministically, gave **1,342/1,342 exact in four of four full runs**. So with deterministic rasterization the installed v166 is bit-identical to v165 across the whole matrix; the residual one-level differences appear only with GPU-backed canvases, where v165 also differs from itself. Which GPU canvas is responsible, and why, is **not identified**. The shipped game still uses GPU canvases, so an isolated one-level variation can still occur in play, as it could in v165. Run the deterministic check with `python tools/build-batched-palette-pixel-preview.py --candidate game.js --world cpu-all`. Reports: `artifacts/palette-readback-v166-installed-browser-full-cpu-all-canvases{,-repeat1,-repeat2,-repeat3}.json`, `...-installed-browser-full-cpu-world{,-repeat1,-repeat2}.json`, `...-installed-browser-recheck-cpu-world.json`, and the GPU-canvas runs `...-dcca2ee1-browser-full-initial.json`, `...-dcca2ee1-browser-full-repeat1.json`, `...-dcca2ee1-browser-recheck-initial.json`, `...-installed-browser-full.json`, `...-installed-browser-recheck.json`; the earlier real failures are kept in `...-e274d0e6-browser-full-initial.json` and `...-6b02d65b-browser-quick-initial.json`.
+
+**Matched timing** (same page, identical 1,355×762 canvas, matched per-scene RNG seeds, cold caches, both run orders twice, 0 visibility interruptions; first-visit draw time after a part break, median / p95 ms; baseline v165 → v166):
+
+| Boss (samples) | Run | Baseline | v166 |
+| --- | --- | --- | --- |
+| Void (16) | baseline-first #1 / candidate-first #1 | 21.4 / 32.8, 21.9 / 34.8 | 8.7 / 19.0, 9.7 / 24.7 |
+| Void (16) | baseline-first #2 / candidate-first #2 | 20.6 / 30.1, 20.2 / 35.0 | 9.6 / 21.7, 9.3 / 19.7 |
+| Prism (32) | baseline-first #1 / candidate-first #1 | 11.7 / 22.0, 15.3 / 22.3 | 7.8 / 15.7, 7.3 / 17.5 |
+| Prism (32) | baseline-first #2 / candidate-first #2 | 13.4 / 26.4, 14.0 / 19.5 | 7.3 / 16.3, 7.6 / 18.5 |
+
+Readbacks fall 176 → 32 (Void) and 224 → 64 (Prism) over exactly the same sampled pixels (1,622,016 and 2,064,384). Warm-frame draw time is unchanged (about 1.3 ms). The mean median fell about 56% (Void) and 45% (Prism); p95 was lower in all eight pairings, narrowly in one. Only first-use stalls are affected, and p95 over 16–32 samples is noisy. The clipped strip was faster (Void about 6–7 ms) but is not exact. Reports: `artifacts/palette-readback-v166-dcca2ee1-paired-{baseline,candidate}-first-run{1,2}.json`. These are drawing-submission measurements in the Chromium build bundled with the desktop app on one machine, not FPS or target-hardware guarantees.
+
+**Installed-source browser proof.** The private focused profiler built from the installed source completed Void and Prism phase 2 (1,202 simulated steps each, 2,404 updates, 3,217 draws, 0 interruptions; 176 palette misses served by 32 readbacks and 224 by 64) with no new console errors or warnings (`artifacts/boss-render-v166-installed-profile.json`). The real game page loads every script at `?v=166` and shows the menu.
+
+**Frozen references and revert.** Production `destruction.js` is unchanged (`b3cab8b9f7e8cb478ca17a795ed9dd0624bf7537751cf37b2e81c208544a08a0`); the frozen v165 game is `artifacts/palette-v165-baseline-game.js` (`e285386ecb4b815d88820ab15210261d7c73428960e25c7d74006ddf3d64ea27`); the v159 friend ZIP is untouched. The private candidate `artifacts/batched-palette-candidate-game.js` (`dcca2ee1d5b9a6e2a6b525098412d732497916b3b05c2ef97731331c177086ee`) is production plus the Flight School URL tag; `python tools/build-batched-palette-candidate.py` rebuilds it from the frozen baseline. To revert, copy `artifacts/palette-v165-baseline-game.js` over `game.js`, restore `index.html` and the Flight School generator/test from `artifacts/v165-installed-backup/`, and run `python tools/build-flight-school.py`.
+
+## Earlier-boss readback batching — v167
+
+**Why.** A survey of all ten main bosses on the v166 source (`tools/build-boss-hitch-survey-preview.py`, report `artifacts/boss-hitch-survey-v166-installed.json`) showed every boss has one slow frame at its first part break (about 30–60 ms) and another at encounter start. v166 had batched only the late integrated bosses; Twin Maw, Helix Crown, Rift Wraith and Iron Bloom still did 3–4 separate readbacks per first paint. In Helix Crown's first break frame (61.9 ms) 30.9 ms was readback; Rift Wraith 19.9 of 44.0 ms; Iron Bloom 22.9 of 43.0 ms; Iron Bloom's eight miss frames spent 181 of 244 ms in readback. Bloodstar has no native exterior part, so the profiler skipped it. Even the batched bosses keep roughly 15–20 ms of non-palette cost (surface/composite work) in the break frame, which this work does not touch.
+
+**Installed change.** `drawEarlyMaterialSockets` now calls a new `prefetchEarlyBossMaterialReadbacks` before its socket loop. It rebuilds each socket's source rectangle from **copied expressions** (so the rectangles are bit-identical), applies the same destruction-surface substitution and scaling as `drawMaterialSocketSample`, and passes the missing samples to the unchanged v166 `prefetchNativeMaterialReadbacks`. Scope handling, fallbacks, per-tile new canvases, the new strip and `try/finally` restoration are exactly v166's. If a prefetched rectangle ever differed from the painted one the key would miss and the original single read would run, and the contract test below fails in that case. Minibosses and Bloodstar are not changed. `python tools/build-batched-palette-candidate.py` now defaults to this design (`--early off` reproduces v166 byte-for-byte, `dcca2ee1…`). The installed `game.js` equals the default candidate (`b57129d4…`) with its Flight School URL tag `?v=165&course=` rewritten to `?v=167&course=`, which is how the install was done.
+
+**Correctness evidence for the installed source** (`game.js` SHA256 `487122e6ecd8123ad11e1673d849e0f16b22c066543dce0ea55af20d18028465`; `destruction.js` unchanged):
+
+| Check | Result |
+| --- | --- |
+| `node tools/verify-palette-readback-batch-v166.cjs` | **16/16.** Three new checks cover all 16 early-boss states (types 1–4 × phases 1–2 × intact/broken: 2–4 single reads become 1, identical palette keys and order, hot paints read nothing), foreign-owner/capture declines, and scope restoration after a thrown paint. Changing one prefetch geometry constant (type 2 core radius 28 → 27) fails the first immediately. |
+| `verify-game.cjs` / `verify-training-integration.cjs` | 141 passed, 0 failed / 28 passed, 0 failed |
+| `verify-palette-preparation-v165.cjs --verify-current` | 1,624 exact comparisons (palette algorithm unchanged) |
+| Strict full pixel comparison, every 2D canvas CPU-backed | **1,342/1,342 exact in 5 of 5 runs** (private candidate ×3, installed `game.js` ×2); palette inputs and layers 0 discrepancies over 3,282 build pairs each |
+| Strict full pixel comparison, default GPU-backed canvases (installed `game.js`) | 1,342/1,342 in the one run. Earlier v166 runs on GPU canvases showed 1–3 one-byte rows; that noise is intermittent (see the v166 section), so one clean run is not evidence it is gone. |
+| Batching work in the matrix | candidate readbacks 1,726 (v166) → 1,408; baseline 3,346; batch calls 574 → 766, tiles 2,130 → 2,640 |
+
+**Matched timing** (same page, identical 1,355×762 canvas, matched RNG seeds, cold caches, two runs per order, 0 interruptions; `tools/build-batched-palette-paired-preview.py --candidate artifacts/batched-palette-candidate-early-game.js --ids 2,3,4 --early-swap`). The profiler's first-visit bucketing relies on the late-boss pose model and is meaningless for these bosses, so the analysis uses raw frames after the break that did palette work. Four-run means, v166 → v167:
+
+| Boss | Total draw in those frames | Worst frame | Median frame | Readback time | Total lower / worst ≤ baseline |
+| --- | --- | --- | --- | --- | --- |
+| Helix Crown | 92 → 58 ms (−37%) | 67.4 → 43.5 ms | 24.2 → 14.3 ms | 68 → 34 ms | 4/4, 3/4 |
+| Rift Wraith | 109 → 72 ms (−34%) | 37.9 → 29.0 ms | 24.4 → 13.1 ms | 83 → 47 ms | 4/4, 2/4 |
+| Iron Bloom | 233 → 160 ms (−31%) | 38.0 → 27.4 ms | 27.9 → 19.1 ms | 183 → 113 ms | 4/4, 4/4 |
+
+Reads per paint fall 3–4 → 1 (e.g. Iron Bloom 24 → 8 over a fight segment). The installed-source survey (`artifacts/boss-hitch-survey-v167-installed.json`, one run) agrees: first break frames 61.9 → 42.6 (Helix), 44.0 → 34.0 (Rift) and 43.0 → 33.2 ms (Iron Bloom), and Twin Maw's encounter-start reads 8 → 2. The unchanged late bosses differed by up to about ±25% between the two survey runs with identical read counts (for example Prism 290 → 375 ms), which is that single-run survey's own noise; use the paired runs, not the survey, for effect sizes. The gain is smaller in absolute terms than v166's, the worst single frame is not consistently lower for Rift Wraith, and the hitch (roughly 2–3 frames at 60 Hz) is reduced, not removed. Reports: `artifacts/palette-readback-v167-early-paired-{baseline,candidate}-first-run{1,2}.json`. These are drawing-submission measurements in the desktop app's bundled Chromium on one machine, not FPS or target-hardware guarantees.
+
+**Frozen references and revert.** The v166 install is preserved as `artifacts/palette-v166-installed-game.js` (`041e478acff80ce76787d8a84a9d6cb8db31082968217e7a89c274df600617e1`), the v166 design candidate as `artifacts/palette-v166-candidate-dcca2ee1.js`, and the pre-install `index.html`, Flight School generator/test and docs under `artifacts/v166-installed-backup/`. To return to v166, copy `artifacts/palette-v166-installed-game.js` over `game.js`, restore `index.html`, `tools/build-flight-school.py` and `tools/verify-training-integration.cjs` from that folder, and run `python tools/build-flight-school.py`. The v165 revert recipe in the v166 section still applies to `artifacts/palette-v165-baseline-game.js` (and needs its own tag restore). The v159 friend ZIP is untouched.

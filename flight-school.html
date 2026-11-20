@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#060914" />
+  <title>Flight School · Starfighter: Last Signal</title>
+  <link rel="preload" as="image" href="assets/menu/menu-key-art.png" />
+  <link rel="stylesheet" href="style.css?v=32" />
+  <link rel="stylesheet" href="controls-ui.css?v=167" />
+  <link rel="stylesheet" href="run-rewards-ui.css?v=167" />
+  <link rel="stylesheet" href="ui-text.css?v=167" />
+</head>
+<body>
+  <script src="flight-school-boot.js?v=167"></script>
+  <main id="game-shell">
+    <span id="save-status" class="save-status" role="status" hidden></span>
+    <canvas id="game" width="960" height="540" tabindex="0" aria-label="Starfighter: Last Signal game canvas. WASD to move, Z to fire, Shift for precision flight, Escape to pause."></canvas>
+
+    <section id="menu" class="panel screen active">
+      <div class="menu-topline"><span class="signal-status">SIGNAL ONLINE</span><div class="menu-top-actions"><span id="menu-progress">0 / 10 MISSIONS CLEARED</span><button id="profiles-menu-btn" class="secondary profile-menu-button">PROFILES</button></div></div>
+      <div class="menu-command">
+        <div class="menu-identity">
+          <p class="eyebrow">ONE FIGHTER. ONE LAST TRANSMISSION.</p>
+          <h1>STARFIGHTER<br><span>LAST SIGNAL</span></h1>
+          <p class="tagline">Pierce the living armada. Carry the signal home.</p>
+          <div class="mode-picker" role="group" aria-label="Choose a game mode">
+            <button id="story-mode-btn" class="mode-card story-mode-card" aria-pressed="true"><span class="mode-number" aria-hidden="true">01</span><b>STORY MODE</b><small>THE TEN-SECTOR CAMPAIGN</small></button>
+            <button id="rush-mode-btn" class="mode-card rush-mode-card" aria-pressed="false"><span class="mode-number" aria-hidden="true">02</span><b>RUSH MODE</b><small>TEN APEX ENCOUNTERS</small></button>
+          </div>
+          <p id="mode-summary" class="mode-summary">Fight through ten sectors. Recover the Force and carry humanity's last transmission home.</p>
+          <div class="menu-launch-actions"><button id="start-btn" class="primary launch-command">NEW GAME <span aria-hidden="true">↗</span></button><button id="load-game-btn" class="load-command" disabled>LOAD GAME</button></div>
+          <p id="continue-summary" class="continue-summary" aria-live="polite">No checkpoint saved. Start a new run.</p>
+          <div class="menu-navigation">
+            <button id="garage-menu-btn" class="secondary">GARAGE</button>
+            <button id="missions-menu-btn" class="secondary" disabled>MISSION SELECT</button>
+          </div>
+        </div>
+      </div>
+      <div class="menu-bottomline"><div class="menu-utilities"><div class="menu-intro"><button id="training-menu-btn" class="secondary" aria-describedby="intro-help">FLIGHT SCHOOL</button><span id="intro-help" class="intro-help" role="tooltip"><b>FLIGHT SCHOOL</b>Optional practice for flight, weapons, gear and builds. Your campaign save stays safe.</span></div><button class="secondary" data-flight-deck>FLIGHT MANUAL</button><button id="controls-menu-btn" class="secondary">CONTROLS</button><button id="loot-guide-menu-btn" class="secondary">LOOT GUIDE</button><button id="boss-lab-menu-btn" class="secondary dev-button">DEV LAB</button></div><p id="best-menu" class="best">BEST: 0</p></div>
+    </section>
+
+    <section id="mission-briefing" class="panel screen mission-briefing-screen">
+      <div class="briefing-deck">
+        <div class="briefing-content">
+          <p id="briefing-mode" class="eyebrow">STORY MODE / MISSION 01</p>
+          <h2 id="briefing-title">SHATTERED MERIDIAN</h2>
+          <p id="briefing-sector" class="briefing-sector">ORBITAL GRAVEYARD</p>
+          <p id="briefing-copy" class="briefing-copy">Thread the broken fleet while tumbling armor closes the firing lane.</p>
+          <div class="briefing-hazard-readout"><span>PRIMARY HAZARD</span><b id="briefing-hazard">RICOCHET DEBRIS</b></div>
+          <dl class="briefing-encounters">
+            <div class="briefing-encounter"><dt>ELITE SIGNATURE</dt><dd id="briefing-elite">WRECK REAVER</dd></div>
+            <div class="briefing-encounter"><dt>EXPECTED APEX</dt><dd id="briefing-apex">THE BLOODSTAR</dd></div>
+          </dl>
+          <div id="briefing-intro-choice" class="briefing-intro-choice" role="group" aria-label="Choose whether to play the intro" hidden><b>BEFORE YOU DEPART</b><p>Five short drills cover flight, firing, Force handling and boss cores. Learn the other systems when you earn them.</p><div class="briefing-intro-actions"><button id="briefing-training-btn" class="secondary">PLAY SHORT INTRO</button><button id="briefing-skip-intro-btn" class="secondary">SKIP INTRO</button></div></div>
+          <div class="briefing-actions"><button id="briefing-depart-btn" class="primary">DEPART <span aria-hidden="true">↗</span></button><button id="briefing-back-btn" class="secondary">BACK</button></div>
+        </div>
+        <aside class="mission-preview briefing-visual" aria-label="Mission departure card">
+          <div id="briefing-art" class="mission-art" role="img" aria-label="Shattered Meridian mission artwork"><span id="briefing-card-label">MISSION 01 / 10</span></div>
+          <div class="mission-brief">
+            <p class="eyebrow">FINAL FLIGHT CHECK</p>
+            <h3>HOLD THE<br>FIRING LINE.</h3>
+            <p>Reclaim the Force. Shatter living armor.<br>Bring the signal home.</p>
+            <div class="mission-target"><span>FLIGHT PLAN</span><b>DEPART WHEN READY</b></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="mission-select" class="panel screen mission-select-screen">
+      <div class="mission-select-heading"><div><p class="eyebrow">FLIGHT ARCHIVE</p><h2>COMPLETED MISSIONS</h2></div><span class="archive-mark" aria-hidden="true">01—10</span></div>
+      <p id="mission-select-status" class="mission-select-status">Clear a sector in Story Mode to unlock its mission replay.</p>
+      <div id="mission-grid" class="mission-grid"></div>
+      <button id="mission-back-btn" class="secondary archive-back">MAIN MENU</button>
+    </section>
+
+    <section id="run-complete" class="panel screen run-complete-screen">
+      <div class="completion-seal" aria-hidden="true"><span>✦</span></div>
+      <p id="complete-subtitle" class="eyebrow">TRANSMISSION RECEIVED</p>
+      <h2 id="complete-title">SIGNAL DELIVERED</h2>
+      <p id="complete-stats" class="complete-stats"></p>
+      <div class="complete-actions"><button id="complete-retry-btn" class="primary">PLAY AGAIN</button><button id="complete-garage-btn" class="secondary">GARAGE</button><button id="complete-menu-btn" class="secondary">MAIN MENU</button></div>
+    </section>
+
+    <section id="loot-guide" class="panel screen loot-guide-screen">
+      <p class="eyebrow">RECOVERED SIGNALS / FIELD EQUIPMENT</p>
+      <h2>FIELD RECOVERY</h2>
+      <p class="loot-guide-subtitle">Recognize your pickups. Build your arsenal. Bring recovered gear home.</p>
+      <div id="loot-guide-grid" class="loot-guide-grid"></div>
+      <button id="loot-guide-back-btn" class="secondary archive-back">MAIN MENU</button>
+    </section>
+
+    <section id="profiles" class="panel screen profile-screen">
+      <p class="eyebrow">PILOT ARCHIVE</p>
+      <h2>SAVE PROFILES</h2>
+      <p id="profiles-status" class="profiles-status">SELECT A PROFILE OR CREATE A NEW GAME</p>
+      <div class="profile-picker">
+        <div class="profile-picker-head"><span>ACTIVE PILOT PROFILE</span><b id="active-profile-name">LAST SIGNAL PILOT</b></div>
+        <div id="profile-menu-slots" class="profile-menu-slots"></div>
+      </div>
+      <div class="profile-actions">
+        <button id="new-game-btn" class="primary new-game-button">NEW PILOT</button>
+        <button id="profiles-back-btn" class="secondary">MAIN MENU</button>
+      </div>
+      <p class="profile-note">Each slot keeps its own garage, gear, boss progress, statistics, and run history.</p>
+    </section>
+
+    <section id="boss-lab" class="panel screen boss-lab-screen">
+      <p class="eyebrow">DEVELOPER QUICK MODE</p>
+      <h2>DEV LAB</h2>
+      <p id="boss-lab-status" class="boss-lab-status">SELECT A LEVEL, STANDARD BOSS, OR EPIC BOSS</p>
+      <h3 class="boss-lab-section-title level-lab-title">LEVEL APPROACHES</h3>
+      <div id="level-lab-grid" class="boss-lab-grid level-lab-grid"></div>
+      <h3 class="boss-lab-section-title">ELITE INTERCEPTORS / ART &amp; COMBAT</h3>
+      <div id="mini-lab-grid" class="boss-lab-grid mini-lab-grid"></div>
+      <h3 class="boss-lab-section-title">STANDARD APEX BOSSES</h3>
+      <div id="boss-lab-grid" class="boss-lab-grid"></div>
+      <div class="boss-lab-actions">
+        <button id="boss-lab-all-btn" class="primary">RUN ALL 10</button>
+      </div>
+      <h3 class="boss-lab-section-title epic-lab-title">EPIC ANOMALIES</h3>
+      <div id="epic-boss-lab-grid" class="boss-lab-grid epic-boss-lab-grid"></div>
+      <div class="boss-lab-actions">
+        <button id="epic-boss-lab-all-btn" class="primary epic-lab-run">RUN BOTH EPIC BOSSES</button>
+        <button id="boss-lab-back-btn" class="secondary">MAIN MENU</button>
+      </div>
+      <p class="boss-lab-note">TEST MODE: NO LOOT OR PROGRESSION · LEVEL TESTS INCLUDE HAZARDS + ELITE + APEX · <kbd>N</kbd> ADVANCE TEST SEGMENT</p>
+    </section>
+
+    <section id="upgrade" class="panel screen upgrade-screen">
+      <p id="upgrade-kicker" class="eyebrow">ENCOUNTER CLEARED</p>
+      <h2 id="upgrade-title">CHOOSE AN UPGRADE</h2>
+      <p id="upgrade-brief" class="upgrade-brief">CHOOSE ONE CONTROLLED SYSTEM IMPROVEMENT</p>
+      <div id="onboarding-module-anchor" style="display:contents"></div>
+      <div id="upgrade-cards" class="cards"></div>
+      <button id="upgrade-garage-btn" class="secondary round-garage-link" hidden>VISIT GARAGE</button>
+    </section>
+
+    <section id="skill-tree" class="panel screen tree-screen">
+      <p id="tree-kicker" class="eyebrow">PILOT NEURAL MATRIX // RUN DOCTRINE</p>
+      <h2 id="tree-title">INSPECT SKILL PATHS</h2>
+      <p id="skill-points" class="skill-points">1 SKILL POINT</p>
+      <div id="onboarding-doctrine-anchor" style="display:contents"></div>
+      <div id="skill-paths" class="tree-grid"></div>
+      <div class="round-upgrade-actions"><button id="tree-continue" class="primary tree-continue">CONTINUE</button><button id="tree-garage-btn" class="secondary round-garage-link" hidden>VISIT GARAGE</button></div>
+    </section>
+
+    <section id="pause" class="panel screen compact">
+      <p class="eyebrow">TRANSMISSION SUSPENDED</p>
+      <h2>PAUSED</h2>
+      <p id="pause-save-note" class="pause-save-note">Collected gear stays in your Garage. Main Menu keeps your last checkpoint. Restart Run begins again.</p>
+      <div class="pause-actions">
+        <button id="resume-btn" class="primary">RETURN TO GAME</button>
+        <button id="controls-pause-btn" class="secondary">CONTROLS</button>
+        <button class="secondary" data-flight-deck>FLIGHT MANUAL &amp; OPTIONS</button>
+        <button id="restart-btn" class="secondary pause-restart">RESTART RUN</button>
+        <button id="pause-menu-btn" class="secondary">MAIN MENU</button>
+      </div>
+    </section>
+
+    <section id="gameover" class="panel screen compact loss-screen">
+      <p class="eyebrow">SIGNAL LOST</p>
+      <h2>MISSION OVER</h2>
+      <p id="final-score" class="final-score">0</p>
+      <p id="final-stats" class="tagline"></p>
+      <div class="loss-brief" aria-label="Final hit and flight advice">
+        <span>FINAL HIT</span><p id="loss-cause">HULL DAMAGE</p>
+        <p id="loss-tip">Use precision flight for small corrections and watch for an open lane.</p>
+      </div>
+      <button id="retry-btn" class="primary">RETRY CHECKPOINT</button>
+      <p id="retry-details" class="retry-details"></p>
+      <button id="restart-run-btn" class="secondary">RESTART CAMPAIGN</button>
+      <button id="garage-btn" class="secondary">OPEN GARAGE</button>
+      <button id="menu-btn" class="secondary">MAIN MENU</button>
+    </section>
+
+    <section id="garage" class="panel screen garage-screen">
+      <p class="eyebrow">PERSISTENT LOADOUT</p>
+      <h2>STARFIGHTER GARAGE</h2>
+      <div id="garage-summary" class="garage-summary"></div>
+      <p id="garage-return-note" class="garage-return-note" hidden>ROUND SECURED // Change equipment, then return to your run.</p>
+      <aside id="garage-intro-guide" class="garage-intro-guide" aria-labelledby="garage-intro-title" hidden>
+        <div class="garage-intro-heading"><span id="garage-intro-progress" class="eyebrow">FIRST FLIGHT / GARAGE</span><span>YOUR REAL PILOT GARAGE</span></div>
+        <div aria-live="polite" aria-atomic="true"><h3 id="garage-intro-title">Your permanent loadout</h3><p id="garage-intro-copy"></p></div>
+        <div id="garage-intro-sample" class="garage-intro-sample" hidden><small>READING EXAMPLE ONLY · NOT OWNED</small><b>EXAMPLE WEAPON <span>POWER 105</span></b><p>Main effect: bonus damage against exposed cores. Example random roll: +4% charge speed. Real drops can roll different values.</p></div>
+        <div class="garage-intro-actions"><button id="garage-intro-prev-btn" class="secondary">PREVIOUS</button><button id="garage-intro-next-btn" class="primary">NEXT</button><button id="garage-intro-skip-btn" class="secondary">SKIP GUIDE &amp; RETURN</button></div>
+      </aside>
+      <div id="garage-customizer" class="garage-customizer"></div>
+      <div class="profile-strip">
+        <label>PILOT PROFILE <input id="profile-name" maxlength="20" value="LAST SIGNAL PILOT" aria-label="Pilot profile name"></label>
+        <button id="garage-save-btn" class="secondary">SAVE PROFILE</button>
+        <span id="profile-save-status">PROFILE READY</span>
+      </div>
+      <div id="onboarding-garage-anchor" style="display:contents"></div>
+      <div id="equipped-gear" class="equipped-gear"></div>
+      <div class="inventory-head"><b>STORED GEAR</b><span id="inventory-count">0 ITEMS</span></div>
+      <div id="gear-inventory" class="gear-inventory"></div>
+      <div id="garage-run-stats" class="garage-run-stats"></div>
+      <div class="garage-actions">
+        <button id="garage-launch-btn" class="primary">LAUNCH WITH LOADOUT</button>
+        <button id="garage-back-btn" class="secondary">MAIN MENU</button>
+      </div>
+    </section>
+
+    <div id="hud" class="hud hidden">
+      <div><small>SCORE</small><strong id="score">000000</strong><small id="loot-count">LOOT 0</small></div>
+      <div class="center-hud">
+        <div class="hud-meter charge-meter"><small id="charge-label">CHARGE / HOLD Z</small><div class="bar"><i id="xp-bar"></i></div></div>
+        <div class="hud-meter dose-meter"><small id="dose-label">DOSE 0%</small><div class="bar"><i id="dose-bar"></i></div></div>
+        <b id="level">WAVE 1</b>
+        <small id="mission-status">APPROACH</small>
+        <small id="combat-loadout">FORCE OFFLINE · M0 · B0</small>
+      </div>
+      <div class="right"><small id="hull-label">HULL</small><strong id="health">◆◆◆</strong><small id="shield-status">SHIELD 0</small></div>
+    </div>
+    <div id="combat-hint" class="combat-hint" aria-hidden="true"><kbd>C</kbd> DEPLOY FORCE <span>·</span> <kbd>V</kbd> FRONT / REAR <span>·</span> <kbd>Q</kbd> DELTA <span>·</span> <kbd>ESC</kbd> PAUSE</div>
+    <button id="mouse-btn" class="mouse" aria-label="Toggle mouse movement">MOUSE FLIGHT: OFF</button>
+    <button id="tree-btn" class="tree-toggle" aria-label="Open skill tree">SKILL TREE [T]</button>
+    <button id="pause-btn" class="pause-control" aria-label="Pause game">PAUSE [ESC]</button>
+    <button id="art-inspect-btn" class="art-inspect-control">ART INSPECT [F2]</button>
+    <div id="art-inspector" class="art-inspector" hidden>
+      <div class="art-inspector-heading"><b id="art-inspector-name">MATERIAL &amp; MOTION STUDY</b><small id="art-inspector-status">CLOSED</small></div>
+      <div class="art-state-buttons" role="group" aria-label="Enemy material state">
+        <button data-art-state="closed">SEALED</button><button data-art-state="opening">OPENING</button><button data-art-state="exposed">EXPOSED</button><button data-art-state="damaged">DAMAGED</button><button data-art-state="destroyed">DESTROYED</button>
+      </div>
+      <div class="art-playback-buttons"><button id="art-motion-btn">PLAY MOTION</button><button id="art-step-btn">STEP FRAME</button><button id="art-phase-btn">NEXT PHASE</button><button id="art-stage-btn">SHOW STAGE</button><button id="art-close-btn">RETURN TO TEST</button></div>
+    </div>
+    <button id="audio-btn" class="audio" aria-label="Open audio mixer">AUDIO MIX</button>
+    <button id="sound-btn" class="sound" aria-label="Toggle sound">SOUND: ON</button>
+    <div id="audio-mixer" class="audio-mixer" aria-label="Audio volume controls">
+      <label><span>MUSIC <b id="music-volume-value">30%</b></span><input id="music-volume" type="range" min="0" max="100" step="1" value="30"></label>
+      <label><span>SFX <b id="sfx-volume-value">82%</b></span><input id="sfx-volume" type="range" min="0" max="100" step="1" value="82"></label>
+    </div>
+    <div id="loot-toast" class="loot-toast" role="status" aria-live="polite"></div>
+    <div id="controller-hint" class="controller-hint" hidden></div>
+    <dialog id="controls-dialog"></dialog>
+    <dialog id="flight-deck" aria-labelledby="flight-deck-title">
+      <div class="deck-header"><div><p class="eyebrow">PILOT OPERATIONS</p><h2 id="flight-deck-title">FLIGHT MANUAL</h2></div><button id="deck-close" class="deck-close" aria-label="Close flight manual">×</button></div>
+      <div class="deck-content">
+        <div class="manual-column">
+          <h3><span>01</span> FLIGHT &amp; FIRE</h3>
+          <dl class="control-list">
+            <div><dt><kbd data-binding-hint="move">W / A / S / D</kbd></dt><dd>Move the fighter</dd></div>
+            <div><dt><kbd data-binding-hint="precision">SHIFT</kbd> + MOVE</dt><dd>Precision flight · shows your collision boundary</dd></div>
+            <div><dt><kbd data-binding-hint="fire">Z / SPACE / X</kbd></dt><dd>Tap to fire. Hold to charge. Release to fire the charge.</dd></div>
+            <div><dt><kbd data-binding-hint="force">C</kbd> / <kbd data-binding-hint="mount">V</kbd></dt><dd>Deploy or recall Force / change front or rear mount</dd></div>
+            <div><dt><kbd data-binding-hint="delta">Q</kbd> / <kbd data-binding-hint="tree">T</kbd></dt><dd>Delta Weapon at 100% DOSE / Inspect run perks</dd></div>
+            <div><dt><kbd data-binding-hint="pause">P / ESC</kbd></dt><dd>Pause or resume</dd></div>
+          </dl>
+          <button id="controls-manual-btn" class="secondary">CUSTOMIZE KEYBOARD / CONTROLLER</button>
+          <p class="manual-note">Mouse Flight follows your pointer. Hold the left button to charge and release to fire. Toggle it with <kbd data-binding-hint="mouse">M</kbd> or the lower-left control.</p>
+          <h3><span>02</span> READ THE FIGHT</h3>
+          <p class="manual-note"><b>Collect the first colored crystal</b> to equip your Force Pod. It blocks pink shots; amber fire pierces Force and Bits. Watch for amber charge cues and move before they fire. Red fires directly, blue ricochets, yellow seeks targets. Mission limits unlock stronger pickups as you progress.</p>
+          <p class="manual-note"><b>Story weapon limits:</b> Force Level 2 unlocks in mission 2 and Level 3 in mission 4. A second missile launcher and Defense Bit unlock in mission 3. Shields hold up to four charges. Surplus pickups add DOSE; crystals still change color.</p>
+          <p class="manual-note"><b>Boss armor takes 25% damage.</b> Watch the embedded cores: opening tells precede bright exposure windows. Break every core. Absorbing fire with the Force and destroying enemies fill DOSE.</p>
+        </div>
+        <div class="options-column">
+          <h3><span>03</span> DISPLAY &amp; COMFORT</h3>
+          <label class="option-row"><span><b>REDUCED MOTION</b><small>Remove camera shake and intense flashes.</small></span><input id="reduced-motion" type="checkbox"></label>
+          <label class="option-row"><span><b>CLEAR COMBAT</b><small>Dim scenery and foreground. Outline hostile fire.</small></span><input id="clear-combat" type="checkbox"></label>
+          <label class="option-row"><span><b>COLLISION GUIDE</b><small>Always show the fighter's collision boundary.</small></span><input id="collision-guide" type="checkbox"></label>
+          <label class="option-row ui-text-option" for="ui-text-size"><span><b>TEXT SIZE</b><small>Menus, gear details and HUD labels.</small></span><select id="ui-text-size"><option value="standard">STANDARD</option><option value="large">LARGE</option></select></label>
+          <p id="ui-text-status" class="manual-note" role="status">Choose the size that is easiest to read.</p>
+          <button id="fullscreen-btn" class="primary">ENTER FULLSCREEN</button>
+          <p id="display-status" class="manual-note" role="status">Display preferences save automatically.</p>
+          <div class="manual-checkpoint"><span>FIELD NOTES</span><p><b>Gear shapes the build.</b> Equip rolled Asterprints and combine gear sets in the Garage. In new runs, elites offer one recovery service; apex victories offer a run perk. Keep up to three active perks and replace one when full.</p><p>Older checkpoints keep their Field Modules and Doctrine tree. Music and SFX volumes are available in <b>AUDIO MIX</b>.</p></div>
+        </div>
+      </div>
+    </dialog>
+  </main>
+  <script src="levels.js?v=1"></script>
+  <script src="systems.js?v=1"></script>
+  <script src="assets/destruction/manifest.js?v=167"></script>
+  <script src="assets/destruction/joint-caps.js?v=167"></script>
+  <script src="destruction.js?v=167"></script>
+  <script src="training.js?v=167"></script>
+  <script src="onboarding.js?v=167"></script>
+  <script src="input-bindings.js?v=167"></script>
+  <script src="gamepad.js?v=167"></script>
+  <script src="controls-ui.js?v=167"></script>
+  <script src="run-progression.js?v=167"></script>
+  <script src="run-rewards-ui.js?v=167"></script>
+  <script src="encounter-tactics.js?v=167"></script>
+  <script src="stage-rhythm.js?v=167"></script>
+  <script src="combat-loss.js?v=167"></script>
+  <script src="ui-text.js?v=167"></script>
+  <script src="sfx-samples.js?v=167"></script>
+  <script src="game.js?v=167"></script>
+</body>
+</html>

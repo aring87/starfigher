@@ -1,0 +1,44 @@
+#!/usr/bin/env node
+'use strict';
+// Native renderer/cache contracts in disposable VM storage. Real browser pixel
+// comparison is separate; mocked Canvas2D traces cannot prove RGBA equality.
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),Module=require('node:module'),crypto=require('node:crypto');
+const root=path.resolve(__dirname,'..'),file=path.join(__dirname,'verify-game.cjs');let support=fs.readFileSync(file,'utf8');support=support.slice(0,support.indexOf('\ntest('));
+support=support.replace('globalThis.__gameTest = {','globalThis.__gameTest = {drawEnemySprite,enemyEndpointSurface,get enemySpriteAtlas(){return spriteAtlas},');
+// Give only this private Image mock normal load-event delivery, so the actual
+// production listener is exercised rather than invoking its callback directly.
+support=support.replace('constructor() { this.naturalWidth = this.width = 1024;','constructor() { eventTarget(this);this.naturalWidth = this.width = 1024;');
+const isolated=new Module(file,module);isolated.filename=file;isolated.paths=Module._nodeModulePaths(__dirname);isolated._compile(support+'\nmodule.exports={createGame};',file);
+const results=[],plain=value=>JSON.parse(JSON.stringify(value));
+function fixture(){const g=isolated.exports.createGame({ruleset:'streamlined-v1'}),created=[],create=g.document.createElement;g.document.createElement=tag=>{const node=create(tag);if(tag==='canvas'){node.getContext('2d').trace=[];created.push(node)}return node};return{...g,created,a:g.api,atlas:g.api.enemySpriteAtlas}}
+const spec={wing:{row:2,w:54,h:44,first:0,next:1},drone:{row:2,w:64,h:52,first:2,next:3},turret:{row:3,w:62,h:58,first:0,next:1}};
+function endpoint(g,type,mix=0,reverse=false){const s=spec[type];return g.a.enemyEndpointSurface(type,reverse?s.next:s.first,reverse?s.first:s.next,s.row,s.w,s.h,mix)}
+function draws(surface){return(surface?.getContext('2d').trace||[]).filter(row=>row.op==='drawImage')}
+function enemy(type,extra={}){return{type,x:530,y:227,r:type==='turret'?17:14,hp:5,maxHp:5,phase:.3,animOffset:0,cool:1.2,c:'#ef5eaa',...extra}}
+function paint(g,e,time=0){const c=g.a.drawingContext;c.trace=[];c.resetTransform();g.a.setTime(time);g.a.drawEnemySprite(e);return c.trace.filter(row=>row.op==='drawImage')}
+function check(name,fn){try{const details=fn();results.push({name,passed:true,details});console.log('PASS '+name)}catch(error){results.push({name,passed:false,error:error.stack});console.error('FAIL '+name+'\n'+error.stack)}}
+check('exact endpoint poses reuse immutable authored-size surfaces without repeating atlas preparation',()=>{
+ const g=fixture();for(const type of['wing','drone','turret']){const surface=endpoint(g,type),before=draws(surface).length;assert.ok(surface);assert.equal(surface.width,spec[type].w);assert.equal(surface.height,spec[type].h);assert.equal(endpoint(g,type),surface);assert.equal(draws(surface).length,before);assert.equal(before,1);assert.equal(draws(surface)[0].alpha,1)}return{families:3};
+});
+check('charged endpoints preserve the old zero-alpha base and lighter next-pose bake sequence',()=>{
+ const g=fixture();for(const type of['drone','turret']){const surface=endpoint(g,type,1),native=draws(surface);assert.equal(native.length,2);assert.equal(native[0].alpha,0);assert.equal(native[0].composite,'source-over');assert.equal(native[1].alpha,1);assert.equal(native[1].composite,'lighter');assert.equal(native[1].args[1],spec[type].next*g.atlas.naturalWidth/4);assert.equal(endpoint(g,type,1),surface)}
+});
+check('the wing second plateau uses its correct reversed native frame without sharing a scratch surface',()=>{
+ const g=fixture(),first=endpoint(g,'wing'),second=endpoint(g,'wing',0,true);assert.notEqual(first,second);assert.equal(draws(second).length,1);assert.equal(draws(second)[0].args[1],g.atlas.naturalWidth/4);const body=paint(g,enemy('wing'),1/3.4);assert.equal(body.length,1);assert.equal(body[0].image,second);
+});
+check('strict intermediate blends and unsupported enemy types stay out of the endpoint cache',()=>{
+ const g=fixture();for(const type of['wing','drone','turret'])for(const mix of[.001,.5,.999])assert.equal(endpoint(g,type,mix),null);assert.equal(g.a.enemyEndpointSurface('unknown',0,1,2,64,52,0),null);assert.equal(g.a.drawEnemySprite.poseCache?.frames?.size||0,0);const body=paint(g,enemy('drone',{fireAnim:.19}));assert.equal(body[0].image,g.a.drawEnemySprite.frameBuffers.get('drone'));const native=draws(body[0].image);assert.equal(native.length,2);assert.ok(native[0].alpha>0&&native[0].alpha<1);assert.ok(native[1].alpha>0&&native[1].alpha<1);assert.equal(native[1].composite,'lighter');
+});
+check('pending or failed atlas readiness never serves a stale endpoint or caches an unsuccessful bake',()=>{
+ const g=fixture(),good=endpoint(g,'drone'),before=g.a.drawEnemySprite.poseCache.frames.size;g.atlas.complete=false;assert.equal(endpoint(g,'drone'),null);assert.equal(endpoint(g,'turret'),null);assert.equal(paint(g,enemy('turret',{telegraphFire:true,fireAnim:.42})).length,0);assert.ok(g.a.drawingContext.trace.some(row=>row.op==='arc'),'A failed atlas retains the original procedural body and fallback telegraph');assert.equal(g.a.drawEnemySprite.poseCache.frames.size,before);g.atlas.complete=true;const width=g.atlas.naturalWidth;g.atlas.naturalWidth=0;assert.equal(endpoint(g,'drone'),null);assert.equal(g.a.drawEnemySprite.poseCache.frames.size,before);g.atlas.naturalWidth=width;assert.equal(endpoint(g,'drone'),good);
+});
+check('atlas source, dimensions and load events invalidate cached poses before reuse',()=>{
+ const g=fixture(),first=endpoint(g,'turret');g.atlas.src='assets/combat-sprite-atlas.png?private-pose-source';const changed=endpoint(g,'turret');assert.notEqual(changed,first);assert.equal(g.a.drawEnemySprite.poseCache.frames.size,1);g.atlas.naturalWidth*=2;g.atlas.naturalHeight*=2;const resized=endpoint(g,'turret');assert.notEqual(resized,changed);assert.equal(draws(resized)[0].args[3],g.atlas.naturalWidth/4);g.atlas.dispatchEvent({type:'load'});assert.equal(g.a.drawEnemySprite.poseCache?.frames?.size||0,0);assert.notEqual(endpoint(g,'turret'),resized);
+});
+check('all canonical endpoint states retain at most six small surfaces across many enemy instances',()=>{
+ const g=fixture();for(let pass=0;pass<60;pass++){paint(g,enemy('wing'),0);paint(g,enemy('wing'),1/3.4);paint(g,enemy('drone'),0);paint(g,enemy('drone',{fireAnim:.3}),0);paint(g,enemy('turret'),0);paint(g,enemy('turret',{telegraphFire:true,fireAnim:.42}),0)}const cache=g.a.drawEnemySprite.poseCache.frames;assert.equal(cache.size,6);const bytes=[...cache.values()].reduce((sum,c)=>sum+c.width*c.height*4,0);assert.equal(bytes,74400);for(const surface of cache.values())assert.ok(draws(surface).length<=2);return{instances:360,cachedPoses:cache.size,rgbaBytes:bytes};
+});
+check('cached rendering preserves actual hit transforms, turret telegraph choice, canvas state and combat data',()=>{
+ const g=fixture(),c=g.a.drawingContext,e=enemy('turret',{telegraphFire:true,fireAnim:.42,fireReleased:false,hitFlash:.12});endpoint(g,'turret',1);const before=JSON.stringify({enemy:e,player:g.a.player,profile:g.a.profile,storage:[...g.storage]});c.globalAlpha=.37;c.globalCompositeOperation='screen';c.filter='hue-rotate(15deg)';c.shadowBlur=7;c.translate(3,5);const matrix=plain(c.getTransform());c.trace=[];g.a.drawEnemySprite(e);assert.equal(JSON.stringify({enemy:e,player:g.a.player,profile:g.a.profile,storage:[...g.storage]}),before);assert.equal(c.globalAlpha,.37);assert.equal(c.globalCompositeOperation,'screen');assert.equal(c.filter,'hue-rotate(15deg)');assert.equal(c.shadowBlur,7);assert.deepEqual(plain(c.getTransform()),matrix);const body=c.trace.filter(row=>row.op==='drawImage');assert.equal(body.length,1);assert.ok(body[0].filter.includes('brightness(1.32)'));assert.equal(c.trace.filter(row=>row.op==='arc').length,0,'A rendered turret must not gain a fallback charge circle');g.sandbox.STARFIGHTER_SETTINGS.reducedMotion=true;const reduced=paint(g,e);assert.deepEqual(Array.from(reduced[0].matrix),[1,0,0,1,e.x,e.y]);
+});
+const failed=results.filter(row=>!row.passed).length,report={sourceHashes:Object.fromEntries(['game.js','assets/combat-sprite-atlas.png'].map(n=>[n,crypto.createHash('sha256').update(fs.readFileSync(path.join(root,n))).digest('hex')])),passed:results.length-failed,failed,results,limits:'Native cache and actual renderer draw traces in private VM storage. This verifies preparation reuse, bounded storage and state contracts; real atlas RGBA equality and browser timing require separate review.'};fs.writeFileSync(path.join(root,'artifacts/enemy-pose-cache-v163-verification.json'),JSON.stringify(report,null,2)+'\n');console.log(`${report.passed} enemy endpoint-cache checks passed, ${failed} failed`);if(failed)process.exitCode=1;

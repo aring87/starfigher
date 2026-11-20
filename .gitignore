@@ -1,0 +1,4 @@
+﻿releases/
+artifacts/
+*.zip
+*.exe

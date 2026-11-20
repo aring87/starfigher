@@ -1,0 +1,170 @@
+# Starfighter development handoff
+
+Updated November 20, 2026 (v166 installed later that day; see "v166 status"). This is the continuation record for **Starfighter: Last Signal**. Read this before changing code. The user requested a summary for a new chat; further implementation was stopped at the checkpoint below.
+
+## Start here
+
+- Workspace: `G:\starfighter`, Windows, PowerShell.
+- Current installed local browser game: **v167**. Usual URL: `http://127.0.0.1:8765/?v=167`. If the server is not running, use `.\Start-Game.ps1` from the workspace. Do not stop an already running preview server unnecessarily.
+- Frozen friend package: **v159**, `G:\starfighter\releases\v159\Starfighter-Playtest-v159.zip`. Development after v159 is separate from that package.
+- **v166 (first-use palette readback batching) and v167 (the same batching extended to the earlier main bosses) are INSTALLED.** Two earlier private designs were rejected on evidence. On default GPU-backed canvases the strict pixel matrix shows 1–3 one-byte differences (also seen in the frozen baseline); with every 2D canvas CPU-backed it is 1,342/1,342 exact in 4 of 4 runs. See "v166 status" below.
+- Current production `game.js` SHA256: `487122e6ecd8123ad11e1673d849e0f16b22c066543dce0ea55af20d18028465` (v167). The v166 install is `artifacts/palette-v166-installed-game.js` (`041e478a…617e1`); the frozen v165 game is `artifacts/palette-v165-baseline-game.js` (`e285386e…4ea27`).
+- Current production `destruction.js` SHA256: `b3cab8b9f7e8cb478ca17a795ed9dd0624bf7537751cf37b2e81c208544a08a0`.
+- No commit, push, deployment or public hosting is requested. The workspace has historically been untracked; `.git` is read-only. Preserve user files and saves.
+
+The immediate next task is in **Unfinished v166 work** below. Do not restart the project, rebuild the friend ZIP automatically, or install earlier rejected rendering experiments.
+
+## User goals and decisions to preserve
+
+The user wants polished arcade shooter art, animation, movement, combat readability and build crafting, with an approachable first run. They authorize sensible local implementation and new sprites/art if actually needed. Continue useful work without repeated approval questions.
+
+- Finish the original polish roadmap before Veteran Campaign, gear levels, elemental damage/resistances or more modes. Those are future ideas, not current implementation scope.
+- Keep **permanent Garage gear with random stat rolls**, two-/four-piece alignment sets, named intrinsic gear pairs, and a **small three-slot temporary run-perk track**. Do not simplify away random rolls or synergy sets. Do not add unchecked reward stacking.
+- Gear names should omit redundant rarity prefixes; rarity already appears through color and a label. Preserve saved original items/archives.
+- Keep the supplied violet-eclipse main menu art and the supplied **Space Blaster.wav** intro/menu theme.
+- **No boss alarm.** The final decision is music-only fading from level music through the visual arrival warning into boss music. Keep music playing on the post-miniboss choice screen.
+- The detachable Force gun stays. Remove only the old ship charging circle. The user retracted their report that the gun had disappeared. The precision/collision guide is a separate intentional feature.
+- Boss weakness lighting must belong to native circuits, vents, organs and armor. No floating weak-point stickers, synthetic circular patches, restored old silhouettes or large cutout holes. Bloodstar's approved heat ramp is native red to yellow to bright yellow.
+- Detached parts must be actual authored limbs, with finished remaining mounts, no residual animated outlines, and smoke from surviving joints. Internal reactor housings remain solid/scorched.
+- Boss targeting lines were removed; attached charge/emitter cues remain. Preserve the existing distinction from regular-enemy aiming tells.
+- Keep the faceted shield design rather than a plain circle drawn around the fighter.
+- Preserve the established 48-second approach and 36-second post-elite field clocks; Mission 1 retains its authored sequence. Do not blanket-change health, attack budgets or gear power during a rendering pass.
+- The user's easy early-level playtests were in **Story Mode**, not DEV Lab. DEV's extra resources are not campaign difficulty evidence.
+- Keyboard/controller support and remapping matter. Intro lessons must show the player's actual current bindings.
+- For future sound passes, supply ready-to-use ElevenLabs/Suno prompts. ElevenLabs' limit discussed here was **500 characters**, not 500 words. The user supplied seven effects already installed; do not generate replacements needlessly.
+- User has mentioned ElevenLabs and Pixel AI connections. Discover currently available tools if needed; do not assume a connection is usable. Recent performance passes need no new sounds or art.
+
+## Current game and player flows
+
+The project is an original dependency-free browser canvas side-scrolling shooter, packaged for private Windows playtesting using an embedded local server/browser launcher. It has ten missions, ten minibosses, ten main bosses and two secret epics: 22 encounters / 38 encounter phases.
+
+### Menu, intro, Garage and saves
+
+- Title menu includes Story/Rush, New Game, Load Game, Garage, completed Mission Select, profiles, Flight School, manual/options, controls, Loot Guide and Dev Lab.
+- The supplied menu background/UI stays. The restored mission card and briefing are on the separate selected-mission briefing screen, followed by **Depart**.
+- New Game offers play/skip intro. The unwanted persistent Flight School HUD/panel over menus was fixed; intro help belongs to the appropriate hover/practice flow.
+- First Flight has five essential drills, with advanced support/Delta mechanics and the full Flight School optional. It explains rolled gear, sets/pairs, miniboss recovery and the small run track without introducing everything at once.
+- Lesson text shows actual selected keyboard/controller bindings, including alternate fire keys and remapped directions. Practice is isolated from real pilot data.
+- Completing the intro opens the **actual Garage for a four-step guided walkthrough**, then returns to the same pending briefing before Depart. Empty pilots see a labeled example, not free equipment. Skipping/backing out preserves context/checkpoints.
+- Garage supports scrolling/adaptive columns, equipment comparison, locking/dismantling, sets and named combinations. It now distinguishes EQUIPPED / IN STORAGE / NOT OWNED requirements and names owned matching items.
+- Garage access exists between rounds and after a loss. **Apply & Retry Checkpoint** recompiles equipped gear into the recorded retry while preserving checkpoint resources/consumed guards; ordinary Retry retains the recorded build.
+- Three pilot profiles, checkpoint load/retry, recorded mission progress and permanent gear remain separate. Field loot is banked on menu/restart/page exit without advancing the checkpoint. Failed-attempt loot/totals must not be counted twice.
+
+### Modes, arsenal and progression
+
+- Story: ten complete missions, each with approach, elite, recovery choice, post-elite field and apex; nonfinal apex rewards feed the run-perk track. Campaign ends after mission ten.
+- Rush: ten main bosses with a full starting kit; bypasses field/elite phases. Apex records count, but Rush does not unlock full Story mission replays.
+- Mission Replay: a single completed full mission with the current Garage loadout. Each specific mission unlocks only after it has been beaten.
+- DEV Lab: direct level, elite, boss and epic tests; extra resources and full arsenal, no real progression/rewards. F2 / ART INSPECT exposes native material, motion, damaged/destroyed states and return-to-test restoration.
+- Force crystals select red/direct, blue/angled-ricochet or yellow/guided fire. Force can dock front/rear, deploy/recall, block pink shots and damage by contact. Amber piercing shots bypass Force/Bits.
+- Defense Bits sit above/below the fighter, intercept pink shots and add fire with red Force; maximum two. They are not a continuous shield.
+- Story/Replay limits: mission 1 Force/missile/Bit 1/1/1; mission 2 2/1/1; mission 3 2/2/2; missions 4–10 3/2/2. Surplus pickups give score/DOSE. Later formation leaders can supply a missing first missile/Bit under the existing conditions; further upgrades remain random.
+- Permanent gear retains rarity, rolled stats, alignment sets, intrinsic effects/pairs and Signal Power calibration. New campaigns have up to three run perks plus simple one-time miniboss recovery choices. Loaded classic checkpoints keep legacy Field Modules/Doctrine compatibility.
+- Rarity labels/colors/pips distinguish equipment crates. Miniboss/apex rewards are banked directly; normal equipment field drops remain collectible. Full drop/build details live in PLAYER_GUIDE.md.
+
+### Secrets
+
+The coded secret bosses are **Null Cathedral** and **Miasma Throne**. All ten distinct main boss records on one pilot unlock them. Each subsequent new Story run has a single 10% chance to schedule an epic replacement (5% each epic), replacing one random mission's apex; this is not a 10% roll at every level. Rush/Replay do not randomly replace their stated encounters. Epics have four phases and active-guardian rituals, with meaningful success/toxin consequences. They award Exotic gear. There are no other coded cheat sequences, hidden entrances or collectible Easter eggs yet. Read PLAYER_GUIDE.md for exact rules rather than inventing secrets.
+
+## Completed art, animation, combat and usability polish
+
+- Weak-point paint uses registered native sprite materials/poses across all encounters. Native armor, grooves and alpha remain; Bloodstar retains its approved heat colors.
+- Authored prepared core/limb atlases under `assets/destruction/` replace runtime body-cutting approaches. Outer assemblies detach at their joints, fall/spin/smoke, and stop reappearing in animation. Living Twin Maw/Helix articulation remains; shared supports wait for all required cores.
+- Part breaks have tactical effects across all 22 encounters: assigned cannons, fans, lanes, jaw salvos, walls/rain or Hydra beam shut down. Existing shots finish normally. Brief DISABLED feedback names the assembly.
+- Regular wings, drones, turrets, elites and bosses received movement/pose/recoil work. Turret charge poses follow real firing cycles. Regular-enemy blending replaces the prior pose instead of leaving an opaque old silhouette beneath it.
+- Damage smoke scales with damage; severed limbs smoke from retained joints. Smoke yields around the fighter/exposed live cores; shots stay above cosmetics. Clear Combat/Reduced Motion preserve readability.
+- Scenery is behind gameplay; hostile round/piercing shots retain distinct silhouettes with separation outlines. Invulnerable fighter remains visible. Delta uses restrained local angular effects instead of a long screen wash. Elite arrival cards stay below actors.
+- Boss health responds immediately with a short settling damage segment; reduced motion/paused state avoid misleading movement. Frozen menus no longer shake behind overlays.
+- Boss armor chips phase health at 25% damage, so surviving awkward rear appendages do not make encounters impossible. Bloodstar steadies while cores are exposed.
+- Fairness fixes cover completed-phase contact, active ritual guardian homing, repeated piercing hits, moving-core swept collisions and same-step contact from already-destroyed field debris.
+- Mission 2–10 waves alternate attack pressure/repositioning/final push while preserving fixed field lengths. Difficulty still needs fresh human playtests with naturally earned kit, gear and perks.
+- Full keyboard/controller support, rebindable actions, menu focus/scrolling, disconnect/focus-loss guards, Standard/Large text, manual/help, checkpoint recovery and concise loss advice are implemented. Physical-controller feel remains unverified by a real player.
+- Supplied menu art/music and seven supplied effects are installed. Hit lead-ins were tightened; core/weapon break became one fracture-impact-decay event; the favorite tiny satisfying sound confirms gear pickup. Critical hull/shield/break cues briefly duck routine detail. Synthesis fallback, mute/volume/pause/tab lifecycle remain.
+
+## Recent installed versions and verification
+
+| Version | Installed change / evidence |
+| --- | --- |
+| v147–v148 | Combat visual hierarchy and tactical part breaks. See BOSS_TACTICS.md. |
+| v149–v153 | Encounter rhythm, loss/retry/options/audio integration, controller focus/refit and initial campaign fairness review. See ENCOUNTER_PACING.md, CAMPAIGN_PLAYTEST.md and SOUND_ASSETS.md. |
+| v154–v156 | Encounter/field interaction fairness, readiness guidance, loot/session reliability, scripted transitions and bounded runtime soak. See ENCOUNTER_REVIEW.md, FIELD_CLARITY.md and SESSION_RELIABILITY.md. |
+| v157–v159 | Intro usability, actual keybind labels, guided Garage continuation and frozen Windows friend package. |
+| v160 | Unbiased distinct stat selection/uniform integer rolls for new gear; saved rolls unchanged. Perk readiness/kit context and accurate gear descriptions. BUILD_CONTEXT.md. |
+| v161 | Owned combination guidance and stable camera behind frozen screens. A 64-pilot guaranteed-reward diagnostic supports clarity rather than more power; it is not human combat evidence. OWNED_BUILDS.md. |
+| v162 | Conservative native fragment readback bounds: 72.167% fewer sampled pixels, with 8,448/8,448 exact repeat outputs. Initial discrepancy and follow-up controls retained. PART_BREAK_PERFORMANCE.md. |
+| v163 | Six immutable regular-enemy endpoint surfaces; strict animation blends unchanged. 1,776/1,776 pixel cases plus atlas controls; mixed-wave repeated atlas painting about 66% lower. Additional cached RGBA storage 74,400 bytes, not measured heap. ENEMY_WAVE_PERFORMANCE.md. |
+| v164 | Particle/debris drag computed once per nonempty group, identical motion/emission/RNG. Maximum normal groups reduce explicit drag powers 1,600→2 per step; this is an operation count, not FPS. 178 checks passed. EFFECTS_PERFORMANCE.md. |
+| v165 | Direct typed-array stores and zero-weight skips in palette preparation; native layers/Float32 segmentation unchanged. 812 exact production comparisons plus 812 control comparisons, 141 core checks/232 assets, 28 intro integration checks. Twelve-patch isolated CPU median 5.694→5.113 ms (~10.2%); not whole-game FPS. |
+| v166 | Batched first-use palette readbacks after boss armor breaks (design: new 96×96 sampler per tile, integer 1:1 copies into one new strip, one read). Palette bytes identical in 3,282 builds; matched post-break first-visit median about −56% Void / −45% Prism; strict pixel matrix 1,342/1,342 exact in 4/4 runs with all canvases CPU-backed (1–3 one-byte rows on GPU canvases, also seen in v165). 13 native contracts, 141 core, 28 training checks. See PART_BREAK_PERFORMANCE.md. |
+| v167 CURRENT | Same batching for Twin Maw, Helix Crown, Rift Wraith and Iron Bloom (`prefetchEarlyBossMaterialReadbacks`, copied geometry expressions). Palette bytes identical; strict pixel matrix exact in 5/5 all-CPU runs; paired post-break miss-frame time −31…−37%. 16 native contracts, 141 core, 28 training checks. See PART_BREAK_PERFORMANCE.md. |
+
+v164's real-browser sustained review completed 52 staged scenarios: all 38 encounter phases, representative display settings, effects stress and drain. 17,413 updates / 19,187 draws, 145.108 simulated seconds. Effect and cache limits held, and all tracked transient arrays drained. It uses a high-hull diagnostic pilot and direct part breaks, not a human campaign. v165's installed browser profile completed two phase-two bosses with 2,402 updates / 3,009 draws and no console errors/warnings. See `artifacts/polish-v165-summary.json` and PART_BREAK_PERFORMANCE.md.
+
+Older private v165 compositor/CPU-mirror/raster-copy trials remain under tools/artifacts. They are **rejected/uninstalled**: faster context changes altered art pixels; palette-only mirrors could preserve pixels but did not improve the measured stalls. Do not install them or confuse their reports with production validation.
+
+## Frozen friend package
+
+`releases/v159/Starfighter-Playtest-v159.zip` exists and is 401,512,266 bytes (about 383 MiB). It contains the EXE plus launch/readme/feedback/checksum/build/verification/roadmap files; all game scripts, assets, fonts and audio are embedded in the EXE. Friend needs Windows 10/11 with Edge or Chrome, not Python/Node/internet/account.
+
+The launcher serves embedded content on `127.0.0.1:18765`; saves live under `%LOCALAPPDATA%/StarfighterLastSignal/Playtest/Browser`. It is an unsigned private playtest, not a store release. All 399 embedded content hashes and HTTP/audio-range/path/close guards were tested. Native app-mode window inspection had an automation URL-verification limitation; do not reinterpret separate browser QA as an inspected native EXE window.
+
+Recorded ZIP SHA256: `7edda5df0774bd20645ad0f2794abab97e85e39e851a6d5a9c76bd3e61d5741b`. Recorded EXE SHA256: `fdb0862a4253a2e17830f8454dc17289626432e63028ed0cf12f79a3eedfc79c`. The ZIP length was rechecked at handoff; these hashes come from the frozen build verification.
+
+Use v159 for friend feedback and keep it fixed. Ask for a fresh Story pilot, intro without coaching, missions 1–3, Garage, Menu/Load and closing/reopening the EXE. Feedback should name mission/boss, kit/build, input device, screen size and reproduction steps. v157 remains historical. The dynamic `tools/build-windows-playtest.py` supports explicit versioning and refuses accidental EXE overwrite; do not rebuild it after every polish turn.
+
+## v166 status (installed on November 20, 2026)
+
+**What is installed.** First-use palette readback batching. Production `game.js` (`041e478a…617e1`) equals the private candidate `artifacts/batched-palette-candidate-game.js` (`dcca2ee1…086ee`) plus the Flight School URL tag `?v=166`. `destruction.js` is unchanged (`b3cab8b9…a08a0`). All `index.html` script/style tags except `systems.js`, `levels.js` and `style.css` are `?v=166`; `flight-school.html` was regenerated and `tools/verify-training-integration.cjs` expects v166. The pre-install copies are in `artifacts/v165-installed-backup/`; the v159 friend ZIP is untouched.
+
+**Evidence** (full tables, limits and revert steps: `PART_BREAK_PERFORMANCE.md`, section "First-use palette readback batching — v166"): native batch contracts 13/13; core 141/0 (232 assets); training 28/0; v165 algorithm check 1,624 exact; seeded layout fuzz 0/4,320 (the rejected clipped strip: 9/4,320); quick pixel 160/160; full strict pixel 1,341/1,342 twice on the private candidate and 1,339/1,342 on the installed `game.js` with default GPU canvases, but **1,342/1,342 in 4 of 4 runs with every 2D canvas CPU-backed (`--world cpu-all`)**; palette inputs/layers 0 discrepancies across 3,282 builds; matched timing medians −56% (Void) / −45% (Prism), p95 lower in 8 of 8 pairings; installed-source profile completed with no new console errors.
+
+**Pixel result.** Every remaining pixel difference on default GPU-backed canvases is one world byte by one level, with identical palette data. The frozen v165 shows the same variation against its own repeat. With the comparison canvas CPU-backed it nearly vanishes (1,342, 1,342, 1,341), and with every 2D canvas on the page CPU-backed (`--world cpu-all`) the installed v166 is bit-identical to v165 in four of four full runs. So the residual is GPU raster noise, not the batching. Which GPU canvas causes it is not identified, and the shipped game still uses GPU canvases. The user was asked whether to keep v166; the revert recipe is in `PART_BREAK_PERFORMANCE.md`. A possible follow-up (not built) is to find the responsible GPU canvas by forcing canvases to CPU one group at a time.
+
+**Rejected designs (sources and reports kept).** (1) Clipped strip drawn in place, candidates b4f64a/e274d0e6: the destination offset inside a taller canvas changes sampling in rare geometries (fuzz 9/4,320; Boss 7 phase 2 reproduced deterministically). (2) Reused scratch canvas, candidate 6b02d65b: after one canvas-sourced tile, later image-sourced tiles were wrong (quick 117/160); the browser-internal cause is unknown. Evidence folders: `artifacts/v166-b4f64a-evidence/`, `artifacts/v166-e274d0e6-evidence/`; every report is `artifacts/palette-readback-v166-*.json`.
+
+**Tooling.**
+- `python tools/build-batched-palette-candidate.py [--scratch tile|batch] [--strip fresh|reuse] [--out path]` always builds from the frozen v165 baseline (never production); defaults reproduce the installed design.
+- `python tools/build-batched-palette-pixel-preview.py [--candidate path] [--failed-report report.json] [--world gpu|cpu|cpu-all]` (use `--world cpu-all` for the deterministic-raster exactness check) builds the strict comparator: RUN QUICK / FULL PIXELS / RECHECK FAILED plus diagnostic modes ISOLATE SAMPLER, FIRST-USE PROBE, FUZZ LAYOUTS, SEQUENCE PROBE and VARIANT PROBE. The script URL carries a content-hash tag so a cached fixture cannot be mistaken for a regenerated one. Failed rows keep self/cross/material controls.
+- `python tools/build-batched-palette-paired-preview.py [--candidate path] [--tag name]` builds same-page paired timing fixtures (`#boss-profile-run` baseline first, `#boss-profile-reverse` candidate first).
+- `node tools/verify-palette-readback-batch-v166.cjs [--source=path]` defaults to production and writes `artifacts/palette-readback-batch-v166-verification.json`.
+- Large reports were exported by a localhost receiver (a scratch script, not in the project) that accepted POSTs on 127.0.0.1:8766 and refused to overwrite; recreate one if needed.
+
+**Pitfalls learned.**
+- The built-in browser pane must be **visible**: a hidden pane stops `requestAnimationFrame` and the fixtures stall (the first full run froze at 1,008 rows; visible full runs take about 45 s).
+- Project text files are **CRLF**. Git Bash `sed -i` silently converts them to LF, and `grep -c $'\r'` does not detect CRs in the tool shell. Edit with Python on bytes (or the Edit tool) and verify with a byte count.
+- Large heredocs passed to the tool shell can be rejected; write a script file instead.
+- This browser samples drawImage tiles differently at a destination offset in a taller canvas, and a reused sampler canvas can change behaviour after a canvas-sourced draw. Any future batching idea must pass the fuzz and the intact → broken → intact sequence probe before the full matrix.
+
+## v167 status (installed on November 20, 2026)
+
+**What changed.** `drawEarlyMaterialSockets` prefetches its sockets through the v166 batch (`prefetchEarlyBossMaterialReadbacks`); everything else is v166. Production `game.js` (`487122e6…8465`) = `python tools/build-batched-palette-candidate.py` default output (`b57129d4…`, `--early on`) with the Flight School tag `?v=165&course=` rewritten to `?v=167&course=` (done with a byte edit; the candidate is built from the frozen v165 baseline, which still carries `v165`). `--early off` reproduces the v166 design (`dcca2ee1…`). All `index.html` script/style tags except `systems.js`, `levels.js` and `style.css` are `?v=167`; `flight-school.html` was regenerated; `tools/verify-training-integration.cjs` expects v167. Pre-install copies: `artifacts/v166-installed-backup/`; revert target `artifacts/palette-v166-installed-game.js`.
+
+**Why it was worth doing.** `tools/build-boss-hitch-survey-preview.py` (private fixture, production source) profiles all ten main bosses and skips Bloodstar (no native exterior part). It showed the four earlier bosses spending 20–31 ms of their 43–62 ms first break frame in readback. Evidence, paired timing (4 runs), survey comparison, limits and revert: `PART_BREAK_PERFORMANCE.md`, section "Earlier-boss readback batching — v167".
+
+**Evidence summary.** Native contracts 16/16 (3 new; a one-constant geometry mutation is caught); core 141/0; training 28/0; v165 algorithm 1,624 exact; strict pixel 1,342/1,342 in 5/5 all-CPU runs and in the one installed default-canvas run (GPU canvases showed 1–3 one-byte rows on v166, intermittent); palette bytes 0 discrepancies in every run; paired post-break miss-frame totals Helix −37%, Rift −34%, Iron Bloom −31%.
+
+**Honest limits.** The worst single frame is not consistently lower for Rift Wraith (2/4 runs), the break-frame hitch is reduced not removed, about 15–20 ms of non-palette cost (surface/composite) remains in every boss's break frame, minibosses and Bloodstar are unbatched, and the survey's single-run numbers vary about ±25%. A possible next step (not started): measure minibosses and encounter-start frames, and look at the non-palette break-frame cost.
+
+**Tooling added.** `python tools/build-boss-hitch-survey-preview.py` (all-boss survey; analyse frames by whether `paletteBuildCalls>0`). `python tools/build-batched-palette-paired-preview.py [--ids 2,3,4] [--early-swap]` profiles other bosses; for non-late bosses ignore its first-visit bucket and analyse raw frames. The native verifier skips early-boss checks when the source lacks the prefetch.
+
+## Roadmap that remains after this focused task
+
+All six original polish feature groups are implemented locally: onboarding; clear build choices; combat hierarchy; tactical bosses; encounter rhythm/difficulty implementation; sound/controls/text/retry. Validation remains open:
+
+1. Friend-reported blockers, saves and first-run confusion.
+2. Human early/middle/final Story difficulty and naturally earned gear/perk/pickup pacing. Automated high-hull/forced-clear fixtures do not establish this.
+3. Real physical controller use/rebinding and human speaker/headphone listening.
+4. Target-computer frame times/memory, window changes and longer real sessions/campaigns.
+5. Windows distribution lifecycle, compatibility, final art/audio review, signing/store/platform readiness.
+
+Veteran Campaign, gear levels and elemental effects/resistances remain deferred. A roughly $5 price was discussed as plausible for a future finished release; there is no store-ready claim or publication task.
+
+## Documentation and tooling notes
+
+Read `README.md`, `ROADMAP.md`, `FRIEND_PLAYTEST.md` and `PART_BREAK_PERFORMANCE.md` first. Also useful: `PLAYER_GUIDE.md`, `BALANCE_AND_BUILDS.md`, `BALANCE_AUDIT.md`, `BOSS_TACTICS.md`, `CAMPAIGN_PLAYTEST.md`, `ENCOUNTER_REVIEW.md`, `FIELD_CLARITY.md`, `SESSION_RELIABILITY.md`, `BUILD_CONTEXT.md`, `OWNED_BUILDS.md`, `ENEMY_WAVE_PERFORMANCE.md`, `EFFECTS_PERFORMANCE.md`, `SOUND_ASSETS.md`, `AUDIO_PROMPTS.md`, `ART_HANDOFF.md` and `FOUNDATION_DESIGN.md` (the broader foundation is staged, not live rules).
+
+Core checks: `node tools/verify-game.cjs`; intro integration: `node tools/verify-training-integration.cjs`. `node tools/verify-palette-preparation-v165.cjs --verify-current` checks the palette algorithm (unchanged in v166); `node tools/verify-palette-readback-batch-v166.cjs` checks the batch transport. Many older scripts overwrite fixed report filenames; preserve earlier evidence before intentional reruns. Use isolated QA pilots and never mutate real saves for tests.
+
+At this handoff **mcp__cua_repl was removed from available tools**. Do not assume its old browser handles or namespace exist in the new chat. Discover currently available browser/computer-use tools and read the current computer-use skill before UI automation. Current skill catalog pointed to `C:/Users/aring/.codex/plugins/cache/openai-bundled/computer-use/26.1111.71704/skills/computer-use/SKILL.md`; verify current access. Use supported tools; do not work around browser security interstitials or use unauthorized external UI/CDP automation.
+
+Earlier browser fixtures were controlled through authored buttons and readonly DOM reports, not arbitrary game-state evaluation. Large JSON reports should stay hidden and be exported in chunks around 120,000 characters when supported; huge visible textareas have caused browser tooling timeouts. Save screenshots as Uint8Array data and reference absolute paths. Timing tests need a visible, unthrottled page and quiet machine; record interruptions and clamped time. No active helper agents were running when the handoff was written.

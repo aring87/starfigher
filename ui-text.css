@@ -1,0 +1,21 @@
+/* Text scaling leaves rem, the game shell and the canvas unchanged. Font-size
+ * overrides are generated from local declarations by ui-text.js. */
+html[data-ui-text="large"] { --ui-text-scale:1.2; }
+.ui-text-option select { flex-shrink:0; max-width:47%; min-height:36px; padding:.45rem .6rem; border:1px solid #426a7f; background:#0c2333; color:#d3f3fa; font:700 .72rem/1.35 'Oxanium',system-ui,sans-serif; letter-spacing:.03em; cursor:pointer; }
+.ui-text-option select:focus-visible { outline:2px solid #8fe8ed; outline-offset:3px; }
+#ui-text-status { margin:.6rem 0 0; }
+html[data-ui-text="large"] .ui-text-option select { font-size:calc(.72rem * var(--ui-text-scale)); }
+html[data-ui-text="large"] #game-shell .screen { overflow-y:auto; scrollbar-width:thin; scrollbar-color:#426578 #081421; overscroll-behavior:contain; }
+html[data-ui-text="large"] #game-shell .screen:not(.garage-screen):not(.boss-lab-screen):not(.mission-select-screen):not(.loot-guide-screen) { align-content:safe center; }
+html[data-ui-text="large"] :is(.gear-buttons,.profile-strip,.boss-lab-actions,.complete-actions,.round-upgrade-actions) { flex-wrap:wrap; }
+html[data-ui-text="large"] :is(.gear-name,.gear-stat-row,.gear-main-effect,.gear-fit,.gear-tradeoff,.run-reward-effect,.run-active-perk,.controls-copy,.binding-row,.manual-note,.briefing-copy,.mode-summary) { overflow-wrap:anywhere; }
+html[data-ui-text="large"] .gear-stat-row { flex-wrap:wrap; }
+html[data-ui-text="large"] .gear-stat-row b { margin-left:auto; }
+html[data-ui-text="large"] .menu-top-actions { flex-wrap:wrap; row-gap:.25rem; justify-content:flex-end; }
+html[data-ui-text="large"] #menu-progress { white-space:normal; }
+html[data-ui-text="large"] .training-frame-bar { font-size:calc(12px * var(--ui-text-scale))!important; }
+html[data-ui-text="large"] .training-frame-return { font-size:calc(10px * var(--ui-text-scale))!important; }
+@media(max-width:650px) {
+  html[data-ui-text="large"] .menu-utilities { column-gap:1.1cqw; flex-wrap:wrap; }
+  html[data-ui-text="large"] .option-row.ui-text-option { align-items:flex-start; }
+}
