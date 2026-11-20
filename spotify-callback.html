@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="referrer" content="no-referrer" />
+  <title>Spotify sign-in · Starfighter: Last Signal</title>
+  <style>
+    body { margin:0; display:grid; place-items:center; min-height:100vh; background:#060914; color:#c9e1ec; font:16px/1.6 system-ui,sans-serif; text-align:center; }
+    p { max-width:32ch; padding:0 1rem; }
+  </style>
+</head>
+<body>
+  <p id="message">Finishing Spotify sign-in…</p>
+  <script>
+    // Hands Spotify's answer (a one-time code, useless without the game's private PKCE verifier) back to the game
+    // window of this same address, then closes itself. It loads nothing and contacts nothing.
+    (() => {
+      'use strict';
+      const params = new URLSearchParams(location.search), clip = (value, limit) => String(value || '').slice(0, limit);
+      const message = { type: 'starfighter-spotify-callback', code: clip(params.get('code'), 2048), state: clip(params.get('state'), 128), error: clip(params.get('error'), 64).replace(/[^a-z_ ]/gi, '') };
+      try { history.replaceState(null, '', location.pathname); } catch (error) { /* the address bar keeps the query; harmless */ }
+      let delivered = false;
+      try { const channel = new BroadcastChannel('starfighter-spotify'); channel.postMessage(message); channel.close(); delivered = true; } catch (error) { /* try the next route */ }
+      try { if (window.opener) { window.opener.postMessage(message, location.origin); delivered = true; } } catch (error) { /* opener may be cut off by Spotify's page */ }
+      try { localStorage.setItem('starfighterSpotifyCallback', JSON.stringify(message)); delivered = true; setTimeout(() => { try { localStorage.removeItem('starfighterSpotifyCallback'); } catch (error) { /* ignore */ } }, 1500); } catch (error) { /* storage may be blocked */ }
+      const text = document.getElementById('message');
+      text.textContent = message.error ? 'Spotify sign-in was not completed. You can close this window.' : delivered ? 'Spotify sign-in received. Returning to the game…' : 'Return to the Starfighter window to finish. You can close this one.';
+      setTimeout(() => { try { window.close(); } catch (error) { /* the player can close it */ } }, 700);
+    })();
+  </script>
+</body>
+</html>

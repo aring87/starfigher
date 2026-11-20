@@ -27,7 +27,8 @@ All six original polish priorities (table below) are implemented. What remains i
 ### Phase 3: release readiness (later)
 
 - **Windows distribution:** the unsigned EXE will trigger SmartScreen and antivirus warnings; consider code signing, install and uninstall behavior, and Windows 10/11 with Edge or Chrome.
-- **Rights check** on the supplied `Space Blaster.wav`, the menu art and any AI-generated audio, before the repository goes public or the game goes to a store.
+- **Rights check** on the supplied `Space Blaster.wav`, the menu art and any AI-generated audio (the One Ring Productions sting in `assets/studio/` is a Suno take; check Suno's terms for the owner's plan), before the repository goes public or the game goes to a store.
+- **Spotify option (v171) must stay out of any sold build.** Spotify's Developer Policy restricts games and commercial use (see [SPOTIFY.md](SPOTIFY.md)); the default Windows build already leaves it out. Keep it that way for a store release.
 - **Final art and audio review,** then store or platform requirements. A price around $5 has been discussed; there is no store-ready claim.
 
 ### Deferred until this roadmap is complete

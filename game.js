@@ -211,7 +211,7 @@
   const soundtrack=new Audio();soundtrack.loop=true;soundtrack.preload='auto';soundtrack.volume=musicVolume;let musicKey='';
   soundtrack.id='game-soundtrack';soundtrack.hidden=true;document.body.append(soundtrack);
   const menuMusicStates=new Set(['menu','garage','profiles','missions','briefing','lootguide','bosslab']);
-  let bossAudioFade=null;
+  let bossAudioFade=null,spotifyCtl=null,spotifyHeld=false,introActive=false;
 
   const musicBags={level:[],boss:[],epic:[]},lastMusicTrack={level:0,boss:0,epic:0};
   const rarityData=[
@@ -619,11 +619,11 @@
   const hit=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y)<a.r+b.r;
   const sweptHit=(shot,target)=>{const x0=shot.px??shot.x,y0=shot.py??shot.y,dx=shot.x-x0,dy=shot.y-y0,lengthSq=dx*dx+dy*dy,along=lengthSq?clamp(((target.x-x0)*dx+(target.y-y0)*dy)/lengthSq,0,1):0,x=x0+dx*along,y=y0+dy*along;return Math.hypot(x-target.x,y-target.y)<shot.r+target.r};
   function clearInput(){resetMenuNavigation();keys.clear();padFrame=gamepadController?.requireNeutral()||emptyPadFrame();mouse.firing=false;mouse.inside=false;const pointerId=mouse.pointerId;mouse.pointerId=null;if(pointerId!=null&&canvas.hasPointerCapture?.(pointerId))canvas.releasePointerCapture(pointerId);if(player){player.charge=0;player.focus=false}sfx.stopCharge()}
-  function musicPlaybackAllowed(){return!trainingFrame&&(menuMusicStates.has(state)||state==='playing'||state==='upgrade')&&!document.hidden&&!$('#flight-deck')?.open}
+  function musicPlaybackAllowed(){return!trainingFrame&&!spotifyHeld&&!introActive&&(menuMusicStates.has(state)||state==='playing'||state==='upgrade')&&!document.hidden&&!$('#flight-deck')?.open}
   function show(id){if(['menu','gameover','complete','bosslab'].includes(state))runActive=false;clearInput();sfx.setMuted(muted||document.hidden);if(!musicPlaybackAllowed())pauseMusic();screens.forEach(s=>s.classList.toggle('active',s.id===id));syncRoundGarageButtons();if(menuMusicStates.has(state))resumeMusic();if(state==='playing'){canvas.focus?.({preventScroll:true});$('#audio-mixer')?.classList.remove('open')}else focusMenuControl();onboardingController?.tick(0)}
   function pauseMusic(){soundtrack.pause()}
-  function cancelBossMusicFade(){bossAudioFade=null;soundtrack.volume=musicVolume}
-  function applyMusicVolume(){const fade=bossAudioFade,factor=!fade?1:fade.phase==='out'?1-clamp(fade.elapsed/4.2,0,1):clamp(fade.elapsed/.65,0,1);soundtrack.volume=musicVolume*factor}
+  function cancelBossMusicFade(){bossAudioFade=null;soundtrack.volume=musicVolume;spotifyCtl?.setLevel(musicVolume,muted)}
+  function applyMusicVolume(){const fade=bossAudioFade,factor=!fade?1:fade.phase==='out'?1-clamp(fade.elapsed/4.2,0,1):clamp(fade.elapsed/.65,0,1);soundtrack.volume=musicVolume*factor;spotifyCtl?.setLevel(musicVolume*factor,muted)}
   function beginBossMusicFade(){cancelBossMusicFade();bossAudioFade={phase:'out',elapsed:0};resumeMusic()}
   function updateBossAudio(dt){const fade=bossAudioFade;if(!fade)return;fade.elapsed+=dt;if(fade.phase==='in'&&fade.elapsed>=.65)bossAudioFade=null;applyMusicVolume()}
   function playMusic(key,src,fadeIn=false){
@@ -3506,7 +3506,7 @@
     return document.querySelector('.screen.active')||$('#menu');
   }
   function pollController(now=0){
-    if(!gamepadController)return;if(trainingFrame||document.hidden||!inputFocused){resetMenuNavigation();padFrame=gamepadController.requireNeutral();return}
+    if(!gamepadController)return;if(trainingFrame||introActive||document.hidden||!inputFocused){resetMenuNavigation();padFrame=gamepadController.requireNeutral();return}
     const wasFiring=padFrame.fire,frame=gamepadController.poll();padFrame=frame;controlsUI?.setConnection(frame);
     const activity=frame.rawButtons.length||frame.moveX||frame.moveY;if(activity){const changed=inputDevice!=='controller';setInputDevice('controller');mouse.inside=false;if(menuMusicStates.has(state)&&(changed||Object.values(frame.pressed).some(Boolean)))resumeMusic()}
     const hint=$('#controller-hint');hint.hidden=!frame.connected||inputDevice!=='controller'||state==='playing'&&!trainingController?.canContinue||$('#controls-dialog')?.open;
@@ -3598,11 +3598,11 @@
     const overlay=document.createElement('div');overlay.className='training-frame-bar';overlay.style.cssText='position:fixed;inset:0;z-index:3000;background:#060914;color:#b9d1e1;font:12px sans-serif';
     const title=document.createElement('span');title.textContent=course==='intro'?'FIRST FLIGHT · FIVE ESSENTIAL DRILLS':'FLIGHT SCHOOL · OPTIONAL PRACTICE';title.style.cssText='position:absolute;top:13px;left:16px;letter-spacing:.12em';
     const back=document.createElement('button');back.className='training-frame-return';back.textContent=pendingBriefing?'BACK TO BRIEFING':'RETURN TO MENU';back.style.cssText='position:absolute;right:12px;top:5px;padding:7px 12px;border:1px solid #37596d;background:#102336;color:#e5faff;font:700 10px sans-serif;cursor:pointer';back.onclick=()=>closeFlightSchool(false);
-    const frame=document.createElement('iframe');frame.title='Flight School — guided practice';frame.src=`flight-school.html?v=170&course=${course}&muted=${muted?1:0}&music=${musicVolume}&sfx=${sfxVolume}&text=${uiText.value}&device=${inputDevice}&controls=${encodeURIComponent(JSON.stringify(controlBindings))}`;frame.allow='autoplay';frame.style.cssText='position:absolute;top:40px;left:0;width:100%;height:calc(100% - 40px);border:0;background:#060914';
-    trainingFrame=frame;trainingOverlay=overlay;overlay.append(title,back,frame);document.body.appendChild(overlay);frame.focus?.();
+    const frame=document.createElement('iframe');frame.title='Flight School — guided practice';frame.src=`flight-school.html?v=172&course=${course}&muted=${muted?1:0}&music=${musicVolume}&sfx=${sfxVolume}&text=${uiText.value}&device=${inputDevice}&controls=${encodeURIComponent(JSON.stringify(controlBindings))}`;frame.allow='autoplay';frame.style.cssText='position:absolute;top:40px;left:0;width:100%;height:calc(100% - 40px);border:0;background:#060914';
+    trainingFrame=frame;trainingOverlay=overlay;syncSpotifyAway();overlay.append(title,back,frame);document.body.appendChild(overlay);frame.focus?.();
   }
   function closeFlightSchool(completed=false){
-    if(!trainingFrame)return;const prior=trainingReturn;trainingOverlay?.remove();trainingOverlay=null;trainingFrame=null;trainingReturn=null;trainingController?.close();$('#game-shell').dataset.training='false';sfx.setMuted(muted||document.hidden);
+    if(!trainingFrame)return;const prior=trainingReturn;trainingOverlay?.remove();trainingOverlay=null;trainingFrame=null;syncSpotifyAway();trainingReturn=null;trainingController?.close();$('#game-shell').dataset.training='false';sfx.setMuted(muted||document.hidden);
     if(completed&&prior?.profile===profile){if(prior.course==='intro')profile.progress.introComplete=true;else{profile.progress.trainingComplete=true;profile.progress.onboardingSeen=[...ONBOARDING_IDS]}saveProfile(prior.course==='intro'?'FIRST FLIGHT COMPLETE':'FLIGHT SCHOOL COMPLETE')}
     if(completed&&prior?.course==='intro'&&prior.profile===profile&&beginGarageIntro(prior.briefing)){resumeMusic();return}
     if(completed&&prior?.continueStory&&prior.briefing===pendingBriefing){departMission();return}
@@ -3713,16 +3713,50 @@
   addEventListener('keyup',e=>{const wasHeld=keys.delete(e.code);if(wasHeld&&controlBindings.keyboard.fire.includes(e.code)&&!chargeKeyHeld()&&!mouse.firing)releaseCharge()});
   $('#pause-btn').onclick=pause;
   $('#story-mode-btn').onclick=()=>selectRunMode('story');$('#rush-mode-btn').onclick=()=>selectRunMode('rush');$('#load-game-btn').onclick=loadGame;$('#missions-menu-btn').onclick=openMissionSelect;$('#mission-back-btn').onclick=goMenu;$('#complete-retry-btn').onclick=()=>start(runMode,runStartWave,runRuleset);$('#complete-menu-btn').onclick=goMenu;
-  $('#start-btn').onclick=start;$('#profiles-menu-btn').onclick=openProfiles;$('#profiles-back-btn').onclick=goMenu;$('#new-game-btn').onclick=newGame;$('#retry-btn').onclick=restartCurrentRun;$('#restart-run-btn').onclick=restartRunFromStart;$('#resume-btn').onclick=pause;$('#restart-btn').onclick=restartCurrentRun;$('#pause-menu-btn').onclick=goMenu;$('#menu-btn').onclick=goMenu;$('#garage-menu-btn').onclick=openGarage;$('#garage-btn').onclick=openGarage;$('#garage-launch-btn').onclick=start;$('#garage-back-btn').onclick=leaveGarage;$('#boss-lab-menu-btn').onclick=()=>openBossLab();$('#boss-lab-all-btn').onclick=()=>startBossLab(0,true);$('#epic-boss-lab-all-btn').onclick=()=>startEpicBossLab(0,true);$('#boss-lab-back-btn').onclick=goMenu;$('#sound-btn').onclick=()=>{muted=!muted;storage.setItem('starfighterMuted',muted);soundtrack.muted=muted;sfx.setMuted(muted);if(!muted)resumeMusic();$('#sound-btn').textContent=`SOUND: ${muted?'OFF':'ON'}`};$('#mouse-btn').onclick=toggleMouse;$('#tree-btn').onclick=()=>{if(state==='playing')openSkillTree()};$('#tree-continue').onclick=closeSkillTree;
+  $('#start-btn').onclick=start;$('#profiles-menu-btn').onclick=openProfiles;$('#profiles-back-btn').onclick=goMenu;$('#new-game-btn').onclick=newGame;$('#retry-btn').onclick=restartCurrentRun;$('#restart-run-btn').onclick=restartRunFromStart;$('#resume-btn').onclick=pause;$('#restart-btn').onclick=restartCurrentRun;$('#pause-menu-btn').onclick=goMenu;$('#menu-btn').onclick=goMenu;$('#garage-menu-btn').onclick=openGarage;$('#garage-btn').onclick=openGarage;$('#garage-launch-btn').onclick=start;$('#garage-back-btn').onclick=leaveGarage;$('#boss-lab-menu-btn').onclick=()=>openBossLab();$('#boss-lab-all-btn').onclick=()=>startBossLab(0,true);$('#epic-boss-lab-all-btn').onclick=()=>startEpicBossLab(0,true);$('#boss-lab-back-btn').onclick=goMenu;$('#sound-btn').onclick=()=>{muted=!muted;storage.setItem('starfighterMuted',muted);soundtrack.muted=muted;applyMusicVolume();sfx.setMuted(muted);if(!muted)resumeMusic();$('#sound-btn').textContent=`SOUND: ${muted?'OFF':'ON'}`};$('#mouse-btn').onclick=toggleMouse;$('#tree-btn').onclick=()=>{if(state==='playing')openSkillTree()};$('#tree-continue').onclick=closeSkillTree;
   $('#garage-save-btn').onclick=()=>{profile.name=($('#profile-name').value.trim()||'LAST SIGNAL PILOT').slice(0,20);saveProfile();renderGarage();renderProfileMenu();$('#profile-save-status').textContent='PROFILE SAVED'};
   $('#start-btn').onclick=launchNewRun;$('#garage-launch-btn').onclick=launchFromGarage;$('#briefing-depart-btn').onclick=departMission;$('#briefing-back-btn').onclick=closeMissionBriefing;$('#upgrade-garage-btn').onclick=openRoundGarage;$('#tree-garage-btn').onclick=openRoundGarage;$('#complete-garage-btn').onclick=openGarage;
   $('#briefing-training-btn').onclick=()=>chooseBriefingIntro(true);$('#briefing-skip-intro-btn').onclick=()=>chooseBriefingIntro(false);
   $('#garage-intro-prev-btn').onclick=()=>moveGarageIntro(-1);$('#garage-intro-next-btn').onclick=()=>moveGarageIntro(1);$('#garage-intro-skip-btn').onclick=finishGarageIntro;
   const audioMixer=$('#audio-mixer'),musicSlider=$('#music-volume'),sfxSlider=$('#sfx-volume');function syncAudioMixer(){musicSlider.value=Math.round(musicVolume*100);sfxSlider.value=Math.round(sfxVolume*100);$('#music-volume-value').textContent=`${musicSlider.value}%`;$('#sfx-volume-value').textContent=`${sfxSlider.value}%`}$('#audio-btn').onclick=()=>{if(state==='playing')pause();audioMixer.classList.toggle('open');resetMenuNavigation();focusMenuControl(audioMixer.classList.contains('open')?musicSlider:null,true)};musicSlider.addEventListener('input',()=>{musicVolume=musicSlider.value/100;applyMusicVolume();storage.setItem('starfighterMusicVolume',musicVolume);$('#music-volume-value').textContent=`${musicSlider.value}%`});sfxSlider.addEventListener('input',()=>{sfx.setVolume(sfxSlider.value/100);storage.setItem('starfighterSfxVolume',sfxVolume);$('#sfx-volume-value').textContent=`${sfxSlider.value}%`});syncAudioMixer();
+  // Opt-in Spotify music (spotify.js, SPOTIFY.md). The module is not even loaded, and nothing is contacted, until the player presses
+  // CONNECT SPOTIFY (or signed in on an earlier visit). Raw browser storage only: never saves, exports or the performance log.
+  // Spotify yields the soundtrack only while it is really playing; every failure hands the music back. Inert in Flight School.
+  function syncSpotifyAway(){spotifyCtl?.setAway(document.hidden||!!trainingFrame)}
+  function onSpotifyChange(){const hold=!!spotifyCtl?.takesMusic;if(hold===spotifyHeld)return;spotifyHeld=hold;if(hold)pauseMusic();else resumeMusic()}
+  function initSpotify(){
+    const group=$('#spotify-group');if(!group)return;
+    if(window.STARFIGHTER_TRAINING_SANDBOX){group.hidden=true;const mini=$('#spotify-mini');if(mini)mini.hidden=true;return}
+    const raw={getItem:key=>{try{return window.localStorage.getItem(key)}catch{return null}},setItem:(key,value)=>window.localStorage.setItem(key,value),removeItem:key=>{try{window.localStorage.removeItem(key)}catch{}}};
+    const version=(document.querySelector?.('script[src*="game.js"]')?.src||'').match(/[?&]v=(\d+)/)?.[1],tag=version?`?v=${version}`:'';
+    const redirect=$('#spotify-redirect');try{if(redirect)redirect.textContent=new URL('spotify-callback.html',window.location.href).href}catch{}
+    let loading=null;
+    const load=()=>loading||(loading=new Promise((resolve,reject)=>{
+      const make=()=>{try{spotifyCtl=window.StarfighterSpotify.create({window,document,storage:raw,onChange:onSpotifyChange});spotifyCtl.bind(document);spotifyCtl.setLevel(musicVolume,muted);syncSpotifyAway();resolve(spotifyCtl)}catch(error){reject(error)}};
+      if(window.StarfighterSpotify)return make();
+      const script=document.createElement('script');script.src='spotify.js'+tag;script.onload=make;script.onerror=()=>reject(new Error('Spotify module missing'));document.head.append(script);
+    }).catch(()=>{loading=null;const status=$('#spotify-status');if(status)status.textContent='Spotify is not included in this build. The game music keeps playing.';return null}));
+    $('#spotify-connect')?.addEventListener('click',()=>{if(!spotifyCtl)load().then(ctl=>ctl?.connect())});
+    $('#spotify-copy')?.addEventListener('click',()=>{if(!spotifyCtl)load().then(ctl=>ctl?.copyRedirect?.())});
+    if(raw.getItem('starfighterSpotifyOn')==='1')load().then(ctl=>ctl?.restore());
+  }
+  initSpotify();
+  // One Ring Productions card (studio-intro.js): plays over the title screen before play. The menu music waits for it and any key, click or
+  // controller button skips it. Not shown in Flight School practice, with ?nointro in the address, or when a build has no studio-intro.js.
+  function initStudioIntro(){
+    const cover=$('#studio-intro');if(!cover)return;
+    const module=window.StarfighterStudioIntro;
+    if(window.STARFIGHTER_TRAINING_SANDBOX||!module||/[?&]nointro(?:[=&]|$)/.test(String(window.location?.search||''))){cover.hidden=true;return}
+    const intro=module.create({window,document,cover,calm:!!settings.reducedMotion||!!window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches,
+      volume:()=>muted?0:module.stingGain*clamp(sfxVolume/.82,0,1.25),
+      onDone(){introActive=false;padFrame=gamepadController?.requireNeutral?.()||emptyPadFrame();resumeMusic()}});
+    if(!intro){cover.hidden=true;return}
+    introActive=true;intro.start();
+  }
   function suspendPlay(){if(state==='playing')pause();else clearInput();pauseMusic()}
   addEventListener('blur',()=>{inputFocused=false;suspendPlay()});
   addEventListener('focus',()=>{inputFocused=true;sfx.setMuted(muted||document.hidden);resumeMusic()});
-  document.addEventListener('visibilitychange',()=>{if(document.hidden){suspendPlay();sfx.setMuted(true)}else{sfx.setMuted(muted);resumeMusic()}});
+  document.addEventListener('visibilitychange',()=>{if(document.hidden){suspendPlay();sfx.setMuted(true)}else{sfx.setMuted(muted);resumeMusic()}syncSpotifyAway()});
   addEventListener('pagehide',()=>{inputFocused=false;suspendPlay();securePendingRunLoot();sfx.c?.suspend?.().catch(()=>{})});
   addEventListener('pageshow',()=>{inputFocused=true;sfx.setMuted(muted||document.hidden);resumeMusic()});
   // Browsers may defer title music until the first click or key press.
@@ -3736,5 +3770,5 @@
   for(const id of['controls-menu-btn','controls-pause-btn','controls-manual-btn'])$('#'+id).onclick=openControls;
   updateControlHints();
   renderProfileMenu();$('#mouse-btn').textContent=`MOUSE FLIGHT: ${mouse.move?'ON':'OFF'}`;
-  reset();state='menu';initializeOnboarding();initializeFlightSchool();if(!trainingSession)resumeMusic();requestAnimationFrame(loop)
+  reset();state='menu';initializeOnboarding();initializeFlightSchool();initStudioIntro();if(!trainingSession)resumeMusic();requestAnimationFrame(loop)
 })();

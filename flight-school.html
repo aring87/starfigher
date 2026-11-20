@@ -6,13 +6,14 @@
   <meta name="theme-color" content="#060914" />
   <title>Flight School · Starfighter: Last Signal</title>
   <link rel="preload" as="image" href="assets/menu/menu-key-art.png" />
-  <link rel="stylesheet" href="style.css?v=33" />
-  <link rel="stylesheet" href="controls-ui.css?v=170" />
-  <link rel="stylesheet" href="run-rewards-ui.css?v=170" />
-  <link rel="stylesheet" href="ui-text.css?v=170" />
+  <link rel="stylesheet" href="style.css?v=35" />
+  <link rel="stylesheet" href="controls-ui.css?v=172" />
+  <link rel="stylesheet" href="run-rewards-ui.css?v=172" />
+  <link rel="stylesheet" href="ui-text.css?v=172" />
 </head>
 <body>
-  <script src="flight-school-boot.js?v=170"></script>
+  <script src="flight-school-boot.js?v=172"></script>
+  <div id="studio-intro" class="studio-intro" aria-hidden="true"></div>
   <main id="game-shell">
     <span id="save-status" class="save-status" role="status" hidden></span>
     <canvas id="game" width="960" height="540" tabindex="0" aria-label="Starfighter: Last Signal game canvas. WASD to move, Z to fire, Shift for precision flight, Escape to pause."></canvas>
@@ -230,6 +231,9 @@
     <div id="audio-mixer" class="audio-mixer" aria-label="Audio volume controls">
       <label><span>MUSIC <b id="music-volume-value">30%</b></span><input id="music-volume" type="range" min="0" max="100" step="1" value="30"></label>
       <label><span>SFX <b id="sfx-volume-value">82%</b></span><input id="sfx-volume" type="range" min="0" max="100" step="1" value="82"></label>
+      <!-- spotify:start -->
+      <div id="spotify-mini" class="spotify-mini" hidden><span id="spotify-mini-title" class="spotify-mini-title">Spotify connected</span><div class="spotify-mini-buttons"><button id="spotify-mini-prev" type="button">PREV</button><button id="spotify-mini-toggle" type="button">PLAY</button><button id="spotify-mini-next" type="button">NEXT</button></div></div>
+      <!-- spotify:end -->
     </div>
     <div id="loot-toast" class="loot-toast" role="status" aria-live="polite"></div>
     <div id="controller-hint" class="controller-hint" hidden></div>
@@ -269,6 +273,23 @@
             <div class="diagnostics-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0"><button id="diagnostics-save" class="primary" type="button" style="min-width:0;padding:.55rem .8rem;font-size:.62rem;letter-spacing:.1em">SAVE FILE</button><button id="diagnostics-copy" class="primary" type="button" style="min-width:0;padding:.55rem .8rem;font-size:.62rem;letter-spacing:.1em">COPY TEXT</button><button id="diagnostics-clear" class="primary" type="button" style="min-width:0;padding:.55rem .8rem;font-size:.62rem;letter-spacing:.1em">CLEAR</button></div>
             <p id="diagnostics-status" class="manual-note" role="status">Off. Turn on before playing, then send the saved file with your feedback.</p>
           </div>
+          <!-- spotify:start -->
+          <div id="spotify-group">
+            <h3><span>05</span> YOUR MUSIC</h3>
+            <p class="manual-note"><b>Optional.</b> Play your own music from Spotify while you fly. It needs Spotify Premium, an internet connection and your own free Spotify developer app (setup guide: SPOTIFY.md). Nothing is contacted until you press CONNECT SPOTIFY, and your sign-in stays on this computer.</p>
+            <label class="option-row spotify-row" for="spotify-client-id"><span><b>SPOTIFY APP ID</b><small>The Client ID of your Spotify developer app.</small></span><input id="spotify-client-id" class="spotify-field" type="text" maxlength="80" autocomplete="off" spellcheck="false" placeholder="32 letters and numbers"></label>
+            <p class="manual-note">Add this address under Redirect URIs in your Spotify app: <code id="spotify-redirect" class="spotify-code"></code> <button id="spotify-copy" class="primary spotify-small" type="button">COPY</button></p>
+            <div class="spotify-actions"><button id="spotify-connect" class="primary spotify-small" type="button">CONNECT SPOTIFY</button><button id="spotify-disconnect" class="primary spotify-small" type="button" hidden>DISCONNECT</button></div>
+            <p id="spotify-status" class="manual-note" role="status">Not connected. Nothing is contacted until you press CONNECT SPOTIFY.</p>
+            <div id="spotify-player" hidden>
+              <label class="option-row spotify-row" for="spotify-link"><span><b>PLAY A LINK</b><small>Paste a Spotify playlist, album or song link.</small></span><input id="spotify-link" class="spotify-field" type="text" maxlength="300" autocomplete="off" spellcheck="false" placeholder="https://open.spotify.com/..."></label>
+              <div class="spotify-actions"><button id="spotify-play-link" class="primary spotify-small" type="button">PLAY LINK</button><button id="spotify-bring" class="primary spotify-small" type="button">PLAY MY SPOTIFY HERE</button></div>
+              <div class="spotify-now"><img id="spotify-art" alt="" width="56" height="56" hidden><span><b id="spotify-title">Nothing playing yet</b><small id="spotify-artist"></small><a id="spotify-open" target="_blank" rel="noopener noreferrer" hidden>Open in Spotify</a></span></div>
+              <div class="spotify-actions"><button id="spotify-prev" class="primary spotify-small" type="button">PREVIOUS</button><button id="spotify-toggle" class="primary spotify-small" type="button">PLAY</button><button id="spotify-next" class="primary spotify-small" type="button">NEXT</button></div>
+              <p class="manual-note spotify-credit">Music supplied and made available by Spotify.</p>
+            </div>
+          </div>
+          <!-- spotify:end -->
           <div class="manual-checkpoint"><span>FIELD NOTES</span><p><b>Gear shapes the build.</b> Equip rolled Asterprints and combine gear sets in the Garage. In new runs, elites offer one recovery service; apex victories offer a run perk. Keep up to three active perks and replace one when full.</p><p>Older checkpoints keep their Field Modules and Doctrine tree. Music and SFX volumes are available in <b>AUDIO MIX</b>.</p></div>
         </div>
       </div>
@@ -276,22 +297,23 @@
   </main>
   <script src="levels.js?v=1"></script>
   <script src="systems.js?v=1"></script>
-  <script src="assets/destruction/manifest.js?v=170"></script>
-  <script src="assets/destruction/joint-caps.js?v=170"></script>
-  <script src="destruction.js?v=170"></script>
-  <script src="training.js?v=170"></script>
-  <script src="onboarding.js?v=170"></script>
-  <script src="input-bindings.js?v=170"></script>
-  <script src="gamepad.js?v=170"></script>
-  <script src="controls-ui.js?v=170"></script>
-  <script src="run-progression.js?v=170"></script>
-  <script src="run-rewards-ui.js?v=170"></script>
-  <script src="encounter-tactics.js?v=170"></script>
-  <script src="stage-rhythm.js?v=170"></script>
-  <script src="combat-loss.js?v=170"></script>
-  <script src="ui-text.js?v=170"></script>
-  <script src="sfx-samples.js?v=170"></script>
-  <script src="diagnostics.js?v=170"></script>
-  <script src="game.js?v=170"></script>
+  <script src="assets/destruction/manifest.js?v=172"></script>
+  <script src="assets/destruction/joint-caps.js?v=172"></script>
+  <script src="destruction.js?v=172"></script>
+  <script src="training.js?v=172"></script>
+  <script src="onboarding.js?v=172"></script>
+  <script src="input-bindings.js?v=172"></script>
+  <script src="gamepad.js?v=172"></script>
+  <script src="controls-ui.js?v=172"></script>
+  <script src="run-progression.js?v=172"></script>
+  <script src="run-rewards-ui.js?v=172"></script>
+  <script src="encounter-tactics.js?v=172"></script>
+  <script src="stage-rhythm.js?v=172"></script>
+  <script src="combat-loss.js?v=172"></script>
+  <script src="ui-text.js?v=172"></script>
+  <script src="sfx-samples.js?v=172"></script>
+  <script src="diagnostics.js?v=172"></script>
+  <script src="studio-intro.js?v=172"></script>
+  <script src="game.js?v=172"></script>
 </body>
 </html>

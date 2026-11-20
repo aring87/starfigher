@@ -45,8 +45,8 @@ const STORAGE_FIXTURE = [
   ['starfighterMuted','true'],['starfighterMusicVolume','.21'],
   ['starfighterSfxVolume','.61'],['starfighterDisplay','{"reducedMotion":true,"clearCombat":false,"collisionGuide":true}'],
 ];
-let passed=0,failed=0;
-function test(name,run){try{run();passed++;console.log('PASS '+name)}catch(error){failed++;console.error('FAIL '+name+'\n'+error.stack)}}
+let passed=0,failed=0;const pendingTests=[];
+function test(name,run){const pass=()=>{passed++;console.log('PASS '+name)},fail=error=>{failed++;console.error('FAIL '+name+'\n'+error.stack)};try{const result=run();if(result&&typeof result.then==='function')pendingTests.push(result.then(pass,fail));else pass()}catch(error){fail(error)}}
 function makePractice(options={}) {
   const game=createGame({trainingBoot:true,initialStorage:STORAGE_FIXTURE,...options});
   const {api,sandbox,document}=game,events=[],snapshots=[],messages=[],pressed=[];
@@ -100,6 +100,24 @@ test('the performance log stays inert in Flight School practice and hides its co
   assert.equal(diagnostics.snapshot().sessions.length,0);assert.equal(diagnostics.save(),null);
   assert.equal(practice.find('#diagnostics-group').hidden,true,'Practice must not show the logging controls');
   for(const key of ['starfighterDiagnostics','starfighterDiagnosticsSessions'])assert.equal(practice.sandbox.localStorage.getItem(key),null,'Practice storage never receives or writes '+key);
+});
+
+test('the studio intro card never plays in Flight School practice',()=>{
+  const calls=[],practice=createGame({trainingBoot:true,prepare:sandbox=>{sandbox.StarfighterStudioIntro={stingGain:.4,create(){calls.push('create');return{start(){calls.push('start')}}}}}});
+  assert.equal(practice.sandbox.STARFIGHTER_TRAINING_SANDBOX,true);assert.deepEqual(calls,[],'Practice never creates the card');assert.equal(practice.find('#studio-intro').hidden,true,'The black cover is lifted at once in practice');
+});
+
+test('Spotify stays inert in Flight School practice, and the parent pauses Spotify while practice is open',()=>{
+  const practice=createGame({trainingBoot:true,initialStorage:[['starfighterSpotifyOn','1']],prepare:sandbox=>{sandbox.StarfighterSpotify={create(){throw new Error('Practice must never create the Spotify player')}}}});
+  assert.equal(practice.sandbox.STARFIGHTER_TRAINING_SANDBOX,true);assert.equal(practice.find('#spotify-group').hidden,true,'Practice must not show the Spotify controls');assert.equal(practice.find('#spotify-mini').hidden,true);
+  assert.equal(practice.document.head.children.length,0,'No script is added in practice');practice.find('#spotify-connect').dispatchEvent({type:'click'});
+  const log=[];let hold=false,change;
+  const parent=createGame({prepare:sandbox=>{sandbox.StarfighterSpotify={create(options){change=options.onChange;return{get takesMusic(){return hold},bind(){},setLevel(){},setAway(away){log.push(away)},connect(){},restore(){}}}}}});
+  parent.find('#spotify-connect').dispatchEvent({type:'click'});
+  return new Promise(resolve=>setImmediate(resolve)).then(()=>{
+    prepareParentOverlay(parent);hold=true;change();parent.api.openFlightSchool(false,'intro');assert.equal(log.at(-1),true,'Spotify pauses while practice is open');
+    assert.equal(parent.api.soundtrack.paused,true);parent.api.closeFlightSchool(false);assert.equal(log.at(-1),false,'Spotify resumes after practice closes');
+  });
 });
 
 test('blocked reads still produce a private, writable practice store',()=>{
@@ -193,21 +211,21 @@ test('every Story New Game asks Play or Skip without touching an existing checkp
 
 test('briefing Play opens isolated practice and graduation visits Garage before the same unlaunched briefing',()=>{
   const g=createGame(),{api,find}=g;api.start('story');api.goMenu();const checkpoint=JSON.stringify(api.profile.checkpoint),inventory=JSON.stringify(api.garage);prepareParentOverlay(g);
-  find('#start-btn').onclick();find('#briefing-training-btn').onclick();assert.ok(api.trainingFrame);assert.match(api.trainingFrame.src,/^flight-school\.html\?v=170&course=intro&/);assert.equal(api.trainingController,null);assert.equal(api.trainingSession,null);assert.equal(api.state,'briefing');assert.equal(JSON.stringify(api.profile.checkpoint),checkpoint);
+  find('#start-btn').onclick();find('#briefing-training-btn').onclick();assert.ok(api.trainingFrame);assert.match(api.trainingFrame.src,/^flight-school\.html\?v=172&course=intro&/);assert.equal(api.trainingController,null);assert.equal(api.trainingSession,null);assert.equal(api.state,'briefing');assert.equal(JSON.stringify(api.profile.checkpoint),checkpoint);
   api.closeFlightSchool(true);assert.equal(api.trainingFrame,null);assert.equal(api.state,'garage');assert.equal(find('#garage-intro-guide').hidden,false);assert.equal(api.profile.progress.introComplete,true);assert.equal(api.profile.progress.trainingComplete,false,'First Flight does not mark the optional advanced school completed');assert.deepEqual(Array.from(api.profile.progress.onboardingSeen),[]);assert.equal(JSON.stringify(api.profile.checkpoint),checkpoint);assert.equal(JSON.stringify(api.garage),inventory);
   find('#garage-intro-skip-btn').onclick();assert.equal(api.state,'briefing');assert.equal(find('#briefing-depart-btn').disabled,false);assert.equal(find('#briefing-intro-choice').hidden,true);assert.equal(JSON.stringify(api.profile.checkpoint),checkpoint);assert.equal(JSON.stringify(api.garage),inventory);
 });
 
 test('main-menu Flight School opens the full course and completion remembers all advanced hints',()=>{
   const g=createGame(),{api,find}=g;api.start('story');api.goMenu();prepareParentOverlay(g);const checkpoint=JSON.stringify(api.profile.checkpoint),inventory=JSON.stringify(api.garage);
-  find('#training-menu-btn').onclick();assert.match(api.trainingFrame.src,/^flight-school\.html\?v=170&course=full&/);assert.equal(api.trainingController,null);assert.equal(api.trainingSession,null);
+  find('#training-menu-btn').onclick();assert.match(api.trainingFrame.src,/^flight-school\.html\?v=172&course=full&/);assert.equal(api.trainingController,null);assert.equal(api.trainingSession,null);
   api.closeFlightSchool(true);assert.equal(api.trainingFrame,null);assert.equal(api.state,'menu');assert.equal(api.profile.progress.trainingComplete,true);assert.deepEqual(Array.from(api.profile.progress.onboardingSeen),ADVANCED_HINT_IDS);assert.equal(JSON.stringify(api.profile.checkpoint),checkpoint);assert.equal(JSON.stringify(api.garage),inventory);
 });
 
 test('partial and complete courses preserve the parent checkpoint and equipment exactly',()=>{
   for(const course of['intro','full'])for(const completed of[false,true]){
     const g=createGame(),{api}=g;api.start('story');api.goMenu();prepareParentOverlay(g);api.profile.progress.onboardingSeen=['shield'];const before=JSON.stringify(api.profile),checkpoint=JSON.stringify(api.profile.checkpoint),inventory=JSON.stringify(api.garage);
-    api.openFlightSchool(false,course);assert.match(api.trainingFrame.src,new RegExp(`^flight-school\\.html\\?v=170&course=${course}&`));assert.equal(JSON.stringify(api.profile),before,'Opening private practice must not alter the parent');api.closeFlightSchool(completed);
+    api.openFlightSchool(false,course);assert.match(api.trainingFrame.src,new RegExp(`^flight-school\\.html\\?v=172&course=${course}&`));assert.equal(JSON.stringify(api.profile),before,'Opening private practice must not alter the parent');api.closeFlightSchool(completed);
     assert.equal(JSON.stringify(api.profile.checkpoint),checkpoint);assert.equal(JSON.stringify(api.garage),inventory);
     if(!completed)assert.equal(JSON.stringify(api.profile),before,'Leaving a partial course must not award completion or change an existing run');
     else if(course==='intro'){assert.equal(api.profile.progress.introComplete,true);assert.equal(api.profile.progress.trainingComplete,false);assert.deepEqual(Array.from(api.profile.progress.onboardingSeen),['shield']);}
@@ -290,6 +308,8 @@ test('practice text preference uses its temporary store and trusts only its pare
   ack(sandbox.parent,sandbox.location.origin,'large');assert.match(find('#ui-text-status').textContent,/Saved for this browser/);g.unchanged();
 });
 
+Promise.all(pendingTests).then(()=>{
 console.log(`\n${passed} practice integration checks passed, ${failed} failed.`);
 console.log('Scope: real game logic, simulated keyboard input and collisions; browser drawing/audio remain mocked.');
 if(failed)process.exitCode=1;
+});

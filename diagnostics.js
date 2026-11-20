@@ -67,8 +67,10 @@
         return write(SESSIONS_KEY,text);
       },false);
     }
+    // Errors raised by the optional Spotify player are never recorded: the log must hold no Spotify data of any kind.
+    const fromSpotify=event=>/spotify|scdn\.co/i.test(`${event?.message||''} ${event?.filename||''} ${event?.error?.message||''} ${event?.reason?.message||event?.reason||''}`);
     function onError(event){
-      if(!enabled||!session)return;
+      if(!enabled||!session||guard(()=>fromSpotify(event),false))return;
       guard(()=>{
         session.errorCount++;if(session.errors.length>=LIMITS.errors)return;
         session.errors.push({t:round((now()-session.startNow)/1000,1),message:clip(event?.message||event?.error?.message||event?.reason?.message||event?.reason),file:fileOnly(event?.filename),line:Number.isFinite(event?.lineno)?event.lineno:null});

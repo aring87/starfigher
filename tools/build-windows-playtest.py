@@ -1,6 +1,7 @@
 """Freeze the shipping browser game into one Windows executable; no dev tools or saves."""
 from pathlib import Path
 import hashlib,json,re,subprocess,zipfile,sys
+from spotify_strip import strip as strip_spotify
 r=Path(__file__).resolve().parent.parent
 version=next((arg.split('=',1)[1] for arg in sys.argv if arg.startswith('--version=')),'v'+re.search(r'game.js\?v=(\d+)',(r/'index.html').read_text(encoding='utf-8'))[1])
 if not re.fullmatch(r'v[0-9]+',version):raise SystemExit('Use a numeric version such as v159.')
@@ -8,15 +9,20 @@ release=r/'releases'/version;release.mkdir(parents=True,exist_ok=True)
 exe=release/f'Starfighter-Playtest-{version}.exe'
 if exe.exists():raise SystemExit('Frozen executable already exists; choose a new build rather than overwriting it.')
 work=r/'artifacts'/f'windows-{version}-build';work.mkdir(parents=True,exist_ok=True)
-entry=['index.html','style.css','levels.js','systems.js','destruction.js','training.js','onboarding.js','input-bindings.js','gamepad.js','controls-ui.js','controls-ui.css','run-progression.js','run-rewards-ui.js','run-rewards-ui.css','encounter-tactics.js','stage-rhythm.js','combat-loss.js','ui-text.js','ui-text.css','sfx-samples.js','diagnostics.js','game.js','flight-school.html','flight-school-boot.js']
+# Spotify is optional and off the default build: Spotify's Developer Policy restricts games and commercial use (see SPOTIFY.md).
+with_spotify='--with-spotify' in sys.argv
+entry=['index.html','style.css','levels.js','systems.js','destruction.js','training.js','onboarding.js','input-bindings.js','gamepad.js','controls-ui.js','controls-ui.css','run-progression.js','run-rewards-ui.js','run-rewards-ui.css','encounter-tactics.js','stage-rhythm.js','combat-loss.js','ui-text.js','ui-text.css','sfx-samples.js','diagnostics.js','studio-intro.js','game.js','flight-school.html','flight-school-boot.js']
+if with_spotify:entry+=['spotify.js','spotify-callback.html']
 files={p:(r/p).read_bytes() for p in entry}
 for folder in ['assets','music']:
  for p in sorted((r/folder).rglob('*')):
-  if p.is_file() and p.suffix.lower() in (['.mp3'] if folder=='music' else ['.png','.jpg','.jpeg','.webp','.json','.js','.css','.ttf','.woff2','.wav','.txt','.svg']):
+  if p.is_file() and p.suffix.lower() in (['.mp3'] if folder=='music' else ['.png','.jpg','.jpeg','.webp','.json','.js','.css','.ttf','.woff2','.wav','.ogg','.txt','.svg']):
    if p.name=='google-fonts-source.css':continue
    files[p.relative_to(r).as_posix()]=p.read_bytes()
 for name in ['index.html','flight-school.html']:
  text=files[name].decode('utf-8').replace('SIGNAL ONLINE',f'PLAYTEST {version}')
+ if not with_spotify:
+  text,removed=strip_spotify(text);assert removed==2,'Spotify markers are missing from '+name
  if name=='index.html':
   lifecycle="""<script>(()=>{const key=new URLSearchParams(location.search).get('hostKey');if(!key)return;const root='/__playtest/'+encodeURIComponent(key)+'/';const ping=()=>fetch(root+'ping',{method:'POST',cache:'no-store'}).catch(()=>{});ping();setInterval(ping,2000);addEventListener('pagehide',()=>navigator.sendBeacon(root+'close',''));})();</script>"""
   text=text.replace('</head>',lifecycle+'</head>',1)

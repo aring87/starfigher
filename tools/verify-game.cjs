@@ -284,6 +284,7 @@ function createGame(options = {}) {
   if (options.blockStorageGetter) Object.defineProperty(sandbox, 'localStorage', { get() { throw new Error('SecurityError'); } });
   sandbox.window = sandbox;
   const context = vm.createContext(sandbox);
+  options.prepare?.(sandbox);
   for(const script of ['assets/destruction/manifest.js','assets/destruction/joint-caps.js','destruction.js','input-bindings.js','gamepad.js','controls-ui.js','run-progression.js','run-rewards-ui.js','encounter-tactics.js','stage-rhythm.js','combat-loss.js','ui-text.js','diagnostics.js','sfx-samples.js'])if(fs.existsSync(path.join(root,script)))vm.runInContext(fs.readFileSync(path.join(root,script),'utf8'),context,{filename:script});
   vm.runInContext(fs.readFileSync(path.join(root, 'levels.js'), 'utf8'), context, { filename: 'levels.js' });
   vm.runInContext(fs.readFileSync(path.join(root, 'systems.js'), 'utf8'), context, { filename: 'systems.js' });
@@ -373,11 +374,14 @@ function createGame(options = {}) {
   return { api, sandbox, document, find, simulate, storage, assetRequests };
 }
 
+const pendingTests = [];
 function test(name, fn) {
   if(process.env.STARFIGHTER_TEST_FILTER&&!name.includes(process.env.STARFIGHTER_TEST_FILTER))return;
-  try { fn(); passed++; console.log(`PASS ${name}`); }
-  catch (error) { failures.push({ name, error }); console.error(`FAIL ${name}: ${error.stack}`); }
+  const pass = () => { passed++; console.log(`PASS ${name}`); }, fail = error => { failures.push({ name, error }); console.error(`FAIL ${name}: ${error.stack}`); };
+  try { const result = fn(); if (result && typeof result.then === 'function') pendingTests.push(result.then(pass, fail)); else pass(); }
+  catch (error) { fail(error); }
 }
+const nextTick = () => new Promise(resolve => setImmediate(resolve));
 
 function weakpointPaint(api,enemy){
   const ctx=api.drawingContext,materials=api.materialContext,bloodstar=enemy.kind==='boss'&&!enemy.epic&&enemy.type===0,scratch=api.bloodstarContext;ctx.trace=[];materials.trace=[];scratch.trace=[];ctx.resetTransform();api.setShake(0);
@@ -1057,6 +1061,67 @@ test('performance log: Flight Manual exposes the controls and remembers the choi
   const returning = createGame({ initialStorage: [['starfighterDiagnostics', '1']] });
   assert.equal(returning.api.diagnostics.enabled, true); assert.equal(returning.find('#diagnostics-enabled').checked, true, 'The choice survives a reload');
   assert.match(fs.readFileSync(path.join(root, 'flight-school.html'), 'utf8'), /diagnostics\.js\?v=\d+/, 'The practice page loads the same inert module');
+});
+
+// A stand-in for spotify.js that records what the game asks of it (the real module is covered by verify-spotify.cjs).
+function spotifyStub() {
+  const log = []; let change = null;
+  const ctl = { hold: false, get takesMusic() { return this.hold; }, bind() { log.push('bind'); }, setLevel(value, muted) { log.push(['level', value, muted]); }, setAway(away) { log.push(['away', away]); }, connect() { log.push('connect'); return true; }, restore() { log.push('restore'); } };
+  return { log, ctl, install: sandbox => { sandbox.StarfighterSpotify = { create(options) { change = options.onChange; log.push('create'); return ctl; } }; }, changed: () => change() };
+}
+
+// A stand-in for studio-intro.js that records what the game asks of it (the real card is covered by verify-studio-intro.cjs).
+function introStub() {
+  const log = []; let done = null;
+  return { log, install: sandbox => { sandbox.StarfighterStudioIntro = { stingGain: .4, create(options) { log.push(['create', options.calm, options.volume()]); done = options.onDone; return { start() { log.push('start'); } }; } }; }, finish: () => done() };
+}
+
+test('studio intro: plays over the title, holds the menu music until it ends, and is skipped for ?nointro, builds without it and reduced motion plays calm', () => {
+  const s = introStub(), g = createGame({ prepare: s.install }), music = g.api.soundtrack;
+  assert.deepEqual(s.log, [['create', false, .4], 'start']); assert.equal(music.paused, true, 'Menu music waits for the card'); assert.equal(g.find('#studio-intro').hidden, false);
+  g.document.dispatchEvent({ type: 'pointerdown', target: g.find('#audio-btn') }); assert.equal(music.paused, true, 'A click while the card is up does not start the menu music under it');
+  s.finish(); assert.equal(music.paused, false, 'Menu music starts when the card ends'); assert.equal(music.src, 'music/menu-intro.mp3');
+  const quiet = introStub(), q = createGame({ prepare: sandbox => { quiet.install(sandbox); sandbox.location.search = '?v=172&nointro=1'; } });
+  assert.deepEqual(quiet.log, [], '?nointro skips the card'); assert.equal(q.find('#studio-intro').hidden, true); assert.equal(q.api.soundtrack.paused, false);
+  const bare = createGame(); assert.equal(bare.find('#studio-intro').hidden, true, 'A build without studio-intro.js shows nothing'); assert.equal(bare.api.soundtrack.paused, false);
+  const calm = introStub(); createGame({ prefersReducedMotion: true, prepare: calm.install }); assert.deepEqual(calm.log[0], ['create', true, .4]);
+  const mute = introStub(); createGame({ initialStorage: [['starfighterMuted', 'true']], prepare: mute.install }); assert.equal(mute.log[0][2], 0, 'SOUND: OFF silences the sting');
+  const refused = createGame({ prepare: sandbox => { sandbox.StarfighterStudioIntro = { stingGain: .4, create: () => null }; } }); assert.equal(refused.find('#studio-intro').hidden, true, 'If the card cannot start the cover is lifted'); assert.equal(refused.api.soundtrack.paused, false);
+});
+
+test('Spotify music: nothing is loaded, stored or requested at start, and the soundtrack is unchanged', () => {
+  const g = createGame();
+  assert.ok(g.find('#spotify-connect')); assert.equal(g.find('#spotify-group').hidden, false); assert.equal(g.document.head.children.length, 0, 'No script is added at start');
+  assert.equal([...g.storage.keys()].filter(key => /spotify/i.test(key)).length, 0); assert.equal(g.sandbox.StarfighterSpotify, undefined);
+  assert.equal(g.api.soundtrack.paused, false); assert.equal(g.api.soundtrack.src, 'music/menu-intro.mp3'); assert.ok(!g.assetRequests.some(item => /spotify|scdn/i.test(item)));
+});
+
+test('Spotify music: CONNECT loads the module on demand, and Spotify and the game soundtrack take turns without fighting', async () => {
+  const s = spotifyStub(), g = createGame({ prepare: s.install }), { api, find } = g, music = api.soundtrack;
+  assert.deepEqual(s.log, [], 'Nothing is created until the player asks');
+  find('#spotify-connect').dispatchEvent({ type: 'click' }); await nextTick();
+  assert.deepEqual(s.log, ['create', 'bind', ['level', .3, false], ['away', false], 'connect']);
+  find('#spotify-connect').dispatchEvent({ type: 'click' }); await nextTick(); assert.equal(s.log.filter(item => item === 'create').length, 1, 'The module is created once');
+  s.ctl.hold = true; s.changed(); assert.equal(music.paused, true, 'The soundtrack steps aside the moment Spotify plays');
+  api.start('story'); assert.match(music.src, /^music\/level\d+\.mp3$/); assert.equal(music.paused, true, 'Level music is prepared but never fights Spotify'); api.goMenu(); api.start('rush');
+  find('#music-volume').value = 50; find('#music-volume').dispatchEvent({ type: 'input' }); assert.deepEqual(s.log.at(-1), ['level', .5, false], 'The MUSIC slider moves Spotify too');
+  find('#sound-btn').onclick(); assert.deepEqual(s.log.at(-1), ['level', .5, true], 'SOUND: OFF mutes Spotify'); find('#sound-btn').onclick();
+  const before = s.log.length; api.flushBossArrival();
+  const levels = s.log.slice(before).filter(item => Array.isArray(item) && item[0] === 'level').map(item => item[1]); assert.ok(levels.some(v => v < .45), 'The boss fade ducks Spotify as it does the soundtrack'); assert.equal(music.paused, true);
+  g.document.hidden = true; g.document.dispatchEvent({ type: 'visibilitychange' }); assert.deepEqual(s.log.at(-1), ['away', true]);
+  g.document.hidden = false; g.document.dispatchEvent({ type: 'visibilitychange' }); assert.deepEqual(s.log.at(-1), ['away', false]); assert.equal(music.paused, true, 'Returning to the page does not restart the soundtrack over Spotify');
+  assert.equal(api.state, 'paused', 'Hiding the page paused the game, as it always has'); api.pause(); assert.equal(music.paused, true, 'Resuming play does not restart the soundtrack over Spotify');
+  s.ctl.hold = false; s.changed(); assert.equal(music.paused, false, 'When Spotify stops or fails, the game soundtrack returns'); assert.match(music.src, /^music\/bosses\//);
+});
+
+test('Spotify music: a saved sign-in reconnects quietly at start; a build without the module keeps the game music and says so', async () => {
+  const s = spotifyStub(), g = createGame({ initialStorage: [['starfighterSpotifyOn', '1']], prepare: s.install }); await nextTick();
+  assert.deepEqual(s.log.filter(item => !Array.isArray(item) || item[0] !== 'level'), ['create', 'bind', ['away', false], 'restore']); assert.ok(s.log.filter(item => Array.isArray(item) && item[0] === 'level').every(item => item[1] === .3 && item[2] === false)); assert.equal(g.api.soundtrack.paused, false, 'The soundtrack plays until Spotify actually plays');
+  const missing = createGame({ initialStorage: [['starfighterSpotifyOn', '1']] }), script = missing.document.head.children[0];
+  assert.equal(script.src, 'spotify.js'); missing.find('#spotify-status').textContent = ''; script.onerror(); await nextTick();
+  assert.match(missing.find('#spotify-status').textContent, /not included in this build.*game music keeps playing/); assert.equal(missing.api.soundtrack.paused, false);
+  const press = createGame(); press.find('#spotify-connect').dispatchEvent({ type: 'click' }); press.document.head.children[0].onerror(); await nextTick();
+  assert.match(press.find('#spotify-status').textContent, /not included in this build/);
 });
 
 test('HUD tolerates out-of-range hull values and remains drawable', () => {
@@ -2156,6 +2221,8 @@ test('all runtime requested and shipping entry assets exist', () => {
   assert.deepEqual(missing, []);
 });
 
-console.log(`\n${passed} passed, ${failures.length} failed; ${requestedAssets.size} asset references checked.`);
-console.log('Scope: simulated logic with mocked browser APIs. Real GPU output, sound quality, device input, and long-session balance require browser playtesting.');
-if (failures.length) process.exitCode = 1;
+Promise.all(pendingTests).then(() => {
+  console.log(`\n${passed} passed, ${failures.length} failed; ${requestedAssets.size} asset references checked.`);
+  console.log('Scope: simulated logic with mocked browser APIs. Real GPU output, sound quality, device input, and long-session balance require browser playtesting.');
+  if (failures.length) process.exitCode = 1;
+});
