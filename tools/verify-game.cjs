@@ -855,6 +855,69 @@ test('malformed saved profiles remain untouched by subsequent autosave', () => {
   }
 });
 
+test('a damaged active-profile setting falls back to the first slot and never names a bad storage key', () => {
+  for (const damaged of ['abc', 'null', '[]', 'NaN', '1e999', '-4', '', ' 2 ']) {
+    const isolated = createGame({ initialStorage: [['starfighterActiveProfile', damaged]] });
+    isolated.api.goMenu(); isolated.api.renderProfileMenu(); isolated.api.start(); isolated.api.saveProfile();
+    assert.deepEqual([...isolated.storage.keys()].filter(key => /NaN|undefined|null|Infinity/.test(key)), [], `bad storage key for ${JSON.stringify(damaged)}`);
+    isolated.api.goMenu(); isolated.api.renderProfileMenu();
+    assert.match(isolated.find('#profiles-menu-btn').textContent, /PILOT 0[123]/, `menu label for ${JSON.stringify(damaged)}`);
+  }
+});
+
+test('damaged numbers in a stored profile become safe values instead of NaN', () => {
+  const source = createGame(), real = source.api.generateGear(2, 1, '', {});
+  const stat = Object.keys(real.stats)[0], stored = JSON.parse(JSON.stringify(source.api.profile));
+  const item = JSON.parse(JSON.stringify(real));
+  item.tier = 'abc'; item.power = 'abc'; item.stats = JSON.parse(`{"__proto__":5,"constructor":3,"${stat}":"abc"}`);
+  stored.garage.inventory = [item, JSON.parse(JSON.stringify(real))]; stored.garage.materials = 'many';
+  stored.lifetime = Object.assign(stored.lifetime, { runs: 7, kills: 'abc', gear: [1, 2], bestScore: 1e999 });
+  stored.progress.epicBossesDefeated = ['a', 3]; stored.lastRun = 'junk'; stored.history = [null, 5, 'x', { score: 10 }];
+  const loaded = createGame({ initialStorage: [['starfighterProfileSlot1', JSON.stringify(stored).replace('"bestScore":null', '"bestScore":1e999')]] }).api;
+  const finite = value => Number.isFinite(value);
+  assert.equal(loaded.garage.inventory.length, 2, 'no gear item is dropped');
+  assert.equal(loaded.garage.materials, 0);
+  assert.equal(loaded.profile.lifetime.runs, 7, 'valid totals are kept');
+  for (const key of ['kills', 'gear', 'bestScore']) assert.equal(loaded.profile.lifetime[key], 0, `lifetime.${key}`);
+  assert.deepEqual(Array.from(loaded.profile.progress.epicBossesDefeated), [0, 3]);
+  assert.equal(loaded.profile.lastRun, null);
+  assert.deepEqual(Array.from(loaded.profile.history, entry => entry.score), [10]);
+  for (const gear of loaded.garage.inventory) {
+    assert.ok(Number.isInteger(gear.tier) && gear.tier >= 0 && gear.tier <= 4 && finite(gear.power) && gear.power >= 100 && gear.power <= 160, 'tier and power are sane');
+    for (const [key, value] of Object.entries(gear.stats)) assert.ok(finite(value), `stat ${key}`);
+    assert.ok(!Object.prototype.hasOwnProperty.call(gear.stats, '__proto__') && !Object.prototype.hasOwnProperty.call(gear.stats, 'constructor'), 'only real stat names survive');
+  }
+  const view = createGame({ initialStorage: [['starfighterProfileSlot1', JSON.stringify(stored)]] });
+  view.api.renderGarage(); assert.match(view.find('#garage-run-stats').innerHTML, /NO SAVED COMBAT RECORD/); assert.doesNotMatch(view.find('#garage-run-stats').innerHTML, /undefined|NaN/);
+});
+
+test('a last run with damaged fields still shows a readable summary', () => {
+  const source = createGame(), stored = JSON.parse(JSON.stringify(source.api.profile));
+  stored.lastRun = { date: 1, mode: 'story', wave: 'x', score: null, kills: [], normalBosses: {}, shotsFired: 'abc', commonDrops: 'abc' };
+  const view = createGame({ initialStorage: [['starfighterProfileSlot1', JSON.stringify(stored)]] });
+  view.api.renderGarage();
+  const text = view.find('#garage-run-stats').innerHTML;
+  assert.doesNotMatch(text, /undefined|NaN|\[object/); assert.match(text, /LAST RUN<\/b> - WAVE 0 \/\/ SCORE 0 \/\/ 0 KILLS/); assert.match(text, /0 COMMON/);
+});
+
+test('a stored garage that cannot be used is preserved, not silently replaced by an empty one', () => {
+  const source = createGame(); source.api.garage.inventory.push(source.api.generateGear(1, 1, '', {})); source.api.saveProfile();
+  const good = JSON.parse(source.storage.get('starfighterProfileSlot1')), mirror = source.storage.get('starfighterGarage');
+  const damaged = JSON.stringify({ ...good, name: 'DAMAGED GARAGE', garage: 'broken' });
+  // Slot 2 has nothing to recover from: it must stay exactly as stored and be reported as session-only.
+  const second = createGame({ initialStorage: [['starfighterProfileSlot2', damaged]] });
+  assert.equal(second.api.readProfileSlot(1), null);
+  second.api.start(); second.api.saveProfile();
+  assert.equal(second.storage.get('starfighterProfileSlot2'), damaged);
+  assert.equal(second.api.storage.sessionOnly, true);
+  // Slot 1 still has the legacy garage mirror, so the gear is recovered rather than lost.
+  const first = createGame({ initialStorage: [['starfighterProfileSlot1', damaged], ['starfighterGarage', mirror]] });
+  assert.equal(first.api.readProfileSlot(0).garage.inventory.length, 1);
+  // A profile that simply has no garage field (an old save) still opens normally.
+  const { garage, ...old } = good; old.version = 5;
+  assert.ok(createGame({ initialStorage: [['starfighterProfileSlot1', JSON.stringify(old)]] }).api.readProfileSlot(0));
+});
+
 test('fixed-step simulation advances equally at 30, 60, and 144 rendered FPS', () => {
   const times = [];
   for (const fps of [30, 60, 144]) {
