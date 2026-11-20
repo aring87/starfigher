@@ -7,12 +7,12 @@
   <title>Flight School · Starfighter: Last Signal</title>
   <link rel="preload" as="image" href="assets/menu/menu-key-art.png" />
   <link rel="stylesheet" href="style.css?v=32" />
-  <link rel="stylesheet" href="controls-ui.css?v=167" />
-  <link rel="stylesheet" href="run-rewards-ui.css?v=167" />
-  <link rel="stylesheet" href="ui-text.css?v=167" />
+  <link rel="stylesheet" href="controls-ui.css?v=168" />
+  <link rel="stylesheet" href="run-rewards-ui.css?v=168" />
+  <link rel="stylesheet" href="ui-text.css?v=168" />
 </head>
 <body>
-  <script src="flight-school-boot.js?v=167"></script>
+  <script src="flight-school-boot.js?v=168"></script>
   <main id="game-shell">
     <span id="save-status" class="save-status" role="status" hidden></span>
     <canvas id="game" width="960" height="540" tabindex="0" aria-label="Starfighter: Last Signal game canvas. WASD to move, Z to fire, Shift for precision flight, Escape to pause."></canvas>
@@ -263,6 +263,12 @@
           <p id="ui-text-status" class="manual-note" role="status">Choose the size that is easiest to read.</p>
           <button id="fullscreen-btn" class="primary">ENTER FULLSCREEN</button>
           <p id="display-status" class="manual-note" role="status">Display preferences save automatically.</p>
+          <div id="diagnostics-group">
+            <h3><span>04</span> PERFORMANCE LOG</h3>
+            <label class="option-row"><span><b>DIAGNOSTICS LOG</b><small>Optional. Records frame-time and error statistics on this computer only. Nothing is sent anywhere.</small></span><input id="diagnostics-enabled" type="checkbox"></label>
+            <div class="diagnostics-actions" style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0"><button id="diagnostics-save" class="primary" type="button" style="min-width:0;padding:.55rem .8rem;font-size:.62rem;letter-spacing:.1em">SAVE FILE</button><button id="diagnostics-copy" class="primary" type="button" style="min-width:0;padding:.55rem .8rem;font-size:.62rem;letter-spacing:.1em">COPY TEXT</button><button id="diagnostics-clear" class="primary" type="button" style="min-width:0;padding:.55rem .8rem;font-size:.62rem;letter-spacing:.1em">CLEAR</button></div>
+            <p id="diagnostics-status" class="manual-note" role="status">Off. Turn on before playing, then send the saved file with your feedback.</p>
+          </div>
           <div class="manual-checkpoint"><span>FIELD NOTES</span><p><b>Gear shapes the build.</b> Equip rolled Asterprints and combine gear sets in the Garage. In new runs, elites offer one recovery service; apex victories offer a run perk. Keep up to three active perks and replace one when full.</p><p>Older checkpoints keep their Field Modules and Doctrine tree. Music and SFX volumes are available in <b>AUDIO MIX</b>.</p></div>
         </div>
       </div>
@@ -270,21 +276,22 @@
   </main>
   <script src="levels.js?v=1"></script>
   <script src="systems.js?v=1"></script>
-  <script src="assets/destruction/manifest.js?v=167"></script>
-  <script src="assets/destruction/joint-caps.js?v=167"></script>
-  <script src="destruction.js?v=167"></script>
-  <script src="training.js?v=167"></script>
-  <script src="onboarding.js?v=167"></script>
-  <script src="input-bindings.js?v=167"></script>
-  <script src="gamepad.js?v=167"></script>
-  <script src="controls-ui.js?v=167"></script>
-  <script src="run-progression.js?v=167"></script>
-  <script src="run-rewards-ui.js?v=167"></script>
-  <script src="encounter-tactics.js?v=167"></script>
-  <script src="stage-rhythm.js?v=167"></script>
-  <script src="combat-loss.js?v=167"></script>
-  <script src="ui-text.js?v=167"></script>
-  <script src="sfx-samples.js?v=167"></script>
-  <script src="game.js?v=167"></script>
+  <script src="assets/destruction/manifest.js?v=168"></script>
+  <script src="assets/destruction/joint-caps.js?v=168"></script>
+  <script src="destruction.js?v=168"></script>
+  <script src="training.js?v=168"></script>
+  <script src="onboarding.js?v=168"></script>
+  <script src="input-bindings.js?v=168"></script>
+  <script src="gamepad.js?v=168"></script>
+  <script src="controls-ui.js?v=168"></script>
+  <script src="run-progression.js?v=168"></script>
+  <script src="run-rewards-ui.js?v=168"></script>
+  <script src="encounter-tactics.js?v=168"></script>
+  <script src="stage-rhythm.js?v=168"></script>
+  <script src="combat-loss.js?v=168"></script>
+  <script src="ui-text.js?v=168"></script>
+  <script src="sfx-samples.js?v=168"></script>
+  <script src="diagnostics.js?v=168"></script>
+  <script src="game.js?v=168"></script>
 </body>
 </html>

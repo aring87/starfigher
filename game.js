@@ -26,6 +26,22 @@
   let controlBindings=bindingsAPI.load(controlsStorage),controlsUI=null,gamepadController=null,inputDevice=window.STARFIGHTER_TRAINING_SANDBOX&&window.STARFIGHTER_INPUT_DEVICE==='controller'?'controller':'keyboard',controlsReturnFocus=null,padNavDirection='',padNavNext=0,padNavRoot=null,inputFocused=true;
   const uiText=window.StarfighterUiText.create({document,storage:window.STARFIGHTER_TRAINING_SANDBOX?{getItem:key=>controlsStorage.getItem(key),setItem(key,value){controlsStorage.setItem(key,value);return false}}:controlsStorage,
     onChange(value,{persist}){if(persist&&window.STARFIGHTER_TRAINING_SANDBOX)window.parent?.postMessage?.({type:'starfighter-ui-text-changed',value},window.location.origin)}});
+  // Opt-in local performance log (see diagnostics.js). Uses the raw browser store, never the game's save wrapper,
+  // and is inert in the isolated Flight School document. Every call below is a no-op while the log is off.
+  const diagnostics=window.StarfighterDiagnostics?.create?.({window,document,sandbox:!!window.STARFIGHTER_TRAINING_SANDBOX,
+    version:(document.querySelector?.('script[src*="game.js"]')?.src||'').match(/[?&]v=(\d+)/)?.[1]?.replace(/^/,'v')||'dev',
+    storage:{getItem:key=>{try{return window.localStorage.getItem(key)}catch{return null}},setItem:(key,value)=>window.localStorage.setItem(key,value),removeItem:key=>{try{window.localStorage.removeItem(key)}catch{}}}})
+    ||{active:false,enabled:false,frame(){},idle(){},mark(){},setContext(){},setKey(){},setSettings(){},setEnvironment(){},bind(){return false}};
+  diagnostics.setKey(()=>boss?`${boss.epic?'epic':'boss'}:${boss.type}:p${boss.phase}`:miniBoss?`mini:${miniBoss.type??'x'}`:`field:${runMode}:${wave}`);
+  diagnostics.setContext(()=>({state,mode:runMode,segment:runSegment,wave,lab:!!bossLab,
+    boss:boss?{kind:boss.kind,type:boss.type,epic:!!boss.epic,phase:boss.phase,hp:+(boss.hp/boss.max||0).toFixed(2),weakOpen:!!boss.weakOpen}:null,
+    mini:miniBoss?{type:miniBoss.type,hp:+(miniBoss.hp/miniBoss.max||0).toFixed(2)}:null,
+    enemies:enemies?.length,enemyShots:enemyShots?.length,shots:shots?.length,particles:particles?.length,debris:debris?.length,fragments:bossFragments?.length,pickups:pickups?.length,
+    paletteCache:nativePaletteCache.size,runSeconds:Math.round(runElapsed)}));
+  diagnostics.setSettings(()=>({reducedMotion:!!settings.reducedMotion,clearCombat:!!settings.clearCombat,collisionGuide:!!settings.collisionGuide,uiText:uiText.value,
+    muted:!!muted,musicVolume,sfxVolume,mouseFlight:!!mouse.move,inputDevice}));
+  diagnostics.setEnvironment(()=>({canvas:[canvas.width,canvas.height],fullscreen:!!document.fullscreenElement}));
+  diagnostics.bind(document);
   const emptyPadFrame=()=>({connected:false,moveX:0,moveY:0,fire:false,precision:false,pressed:{},nav:{x:0,y:0},rawButtons:[]});
   let padFrame=emptyPadFrame();
   const keyHeld=action=>(controlBindings.keyboard[action]||[]).some(code=>keys.has(code));
@@ -2147,7 +2163,7 @@
     if(e.kind==='boss'&&e.type===4){e.ironDamageKick=1;e.ironDamageSlot=node.ironBloomIndex??0;if(node.hp>.001){const stage=ratio<.25?2:ratio<.55?1:0;if(stage>(node.damageStage||0)){node.damageStage=stage;const w=worldWeakNode(e,node);shedIronBloomShards(e,w,stage===2?7:4);shake=Math.max(shake,stage===2?9:5)}}}
     if(!node.damageShown&&ratio<.5){node.damageShown=true;const w=worldWeakNode(e,node);particlesAt(w.x,w.y,'#ff7849',10,105);debrisAt(w.x,w.y,'#7d2637',4,.55)}
     if(node.hp<=.001){
-      node.hp=0;node.destroyed=true;
+      node.hp=0;node.destroyed=true;diagnostics.mark('part-break');
       if(runStats&&!bossLab)runStats.weakspotsDestroyed++;
       if(player.weakBreakDose)addDose(player.weakBreakDose);
       if(player.weakOverdrive){if(streamlined())player.lootSurgeStrength=Math.max(player.lootSurge>0?player.lootSurgeStrength||.06:0,.06);player.lootSurge=Math.max(player.lootSurge,player.weakOverdrive)}
@@ -3515,6 +3531,7 @@
     const elapsed=last?clamp((n-last)/1000,0,.1):0;last=n;
     try{
       pollController(n);
+      const diagnosticsOn=diagnostics.active&&state==='playing',diagnosticsStart=diagnosticsOn?performance.now():0;
       if(state==='playing'){
         simulationAccumulator+=elapsed;
         while(simulationAccumulator+1e-9>=SIMULATION_STEP&&state==='playing'){
@@ -3525,7 +3542,9 @@
       const artAvailable=String(bossLab&&!!(boss||miniBoss)&&['playing','paused'].includes(state));if($('#game-shell').dataset.artTest!==artAvailable)$('#game-shell').dataset.artTest=artAvailable;
       const playing=state==='playing'||state==='paused'||state==='skilltree';
       if($('#game-shell').dataset.playing!==String(playing))$('#game-shell').dataset.playing=String(playing);
+      const diagnosticsMid=diagnosticsOn?performance.now():0;
       if(state==='playing'||state==='art'||n-lastIdleRender>=100){draw();lastIdleRender=n}
+      if(diagnosticsOn&&state==='playing')diagnostics.frame(n,diagnosticsMid-diagnosticsStart,performance.now()-diagnosticsMid);else diagnostics.idle();
     }catch(error){
       console.error('Game loop stopped after an error:',error);clearInput();pauseMusic();
       ctx.fillStyle='#050816';ctx.fillRect(0,0,W,H);
@@ -3575,7 +3594,7 @@
     const overlay=document.createElement('div');overlay.className='training-frame-bar';overlay.style.cssText='position:fixed;inset:0;z-index:3000;background:#060914;color:#b9d1e1;font:12px sans-serif';
     const title=document.createElement('span');title.textContent=course==='intro'?'FIRST FLIGHT · FIVE ESSENTIAL DRILLS':'FLIGHT SCHOOL · OPTIONAL PRACTICE';title.style.cssText='position:absolute;top:13px;left:16px;letter-spacing:.12em';
     const back=document.createElement('button');back.className='training-frame-return';back.textContent=pendingBriefing?'BACK TO BRIEFING':'RETURN TO MENU';back.style.cssText='position:absolute;right:12px;top:5px;padding:7px 12px;border:1px solid #37596d;background:#102336;color:#e5faff;font:700 10px sans-serif;cursor:pointer';back.onclick=()=>closeFlightSchool(false);
-    const frame=document.createElement('iframe');frame.title='Flight School — guided practice';frame.src=`flight-school.html?v=167&course=${course}&muted=${muted?1:0}&music=${musicVolume}&sfx=${sfxVolume}&text=${uiText.value}&device=${inputDevice}&controls=${encodeURIComponent(JSON.stringify(controlBindings))}`;frame.allow='autoplay';frame.style.cssText='position:absolute;top:40px;left:0;width:100%;height:calc(100% - 40px);border:0;background:#060914';
+    const frame=document.createElement('iframe');frame.title='Flight School — guided practice';frame.src=`flight-school.html?v=168&course=${course}&muted=${muted?1:0}&music=${musicVolume}&sfx=${sfxVolume}&text=${uiText.value}&device=${inputDevice}&controls=${encodeURIComponent(JSON.stringify(controlBindings))}`;frame.allow='autoplay';frame.style.cssText='position:absolute;top:40px;left:0;width:100%;height:calc(100% - 40px);border:0;background:#060914';
     trainingFrame=frame;trainingOverlay=overlay;overlay.append(title,back,frame);document.body.appendChild(overlay);frame.focus?.();
   }
   function closeFlightSchool(completed=false){

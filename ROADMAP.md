@@ -2,9 +2,51 @@
 
 Veteran Campaign is deferred until this roadmap is finished. Gear levels, additional modes and elemental status effects are not part of the current readability pass.
 
+## Updated roadmap — as of v167 (November 20, 2026)
+
+All six original polish priorities (table below) are implemented. What remains is validation with real people and devices, then release readiness. Since the last roadmap: v160–v161 clarified gear rolls and owned builds; v162–v167 reduced part-break and effect costs, with bosses 3–10 now batching their first-use material readbacks (Bloodstar and minibosses are not batched); and the project is on GitHub.
+
+**Performance work is paused after v167.** A boss part break now costs one slow frame (about 30–40 ms, roughly two dropped frames at 60 fps) the first time a part breaks in a fight. Most of what remains is unattributed and probably first-use GPU work. Removing it would mean pre-warming, which moves cost rather than removing it, and everything so far was measured on one machine. Resume only if Phase 1 shows stutter, starting with measurement and no behavior change. See [Performance evidence](PART_BREAK_PERFORMANCE.md#earlier-boss-readback-batching--v167).
+
+### Phase 1: human feedback (needs you or friends; no code)
+
+1. **Friend playtest of the v168 ZIP** (turn on the performance log and send the saved file). Ask for a fresh Story pilot, the intro without coaching, missions 1–3, the Garage, Menu/Load, and closing and reopening the EXE. Ask friends to report the mission or boss, kit and build, input device, screen size, and reproduction steps. See [Friend playtest](FRIEND_PLAYTEST.md).
+2. **Your own Story playthrough** of early, middle and final missions using only earned gear. Note where it is too easy or too hard, how clear each boss is, and how quickly gear drops. See [Campaign playtesting](CAMPAIGN_PLAYTEST.md).
+3. **Physical controller test:** menus, remapping, disconnects, and whether intro text shows the real bindings.
+4. **Speaker and headphone listening:** the mix, the critical cues, and the music fade into boss music.
+5. **Older-PC test:** watch boss part breaks for stutter (the real performance test), memory over 30+ minutes, and window resize and fullscreen.
+
+### Phase 2: fixes from that feedback
+
+- Fix blockers, save and load problems, and first-run confusion.
+- Tune difficulty only from human data, not before.
+- Fix controller and audio issues. New sounds come with ready-to-use ElevenLabs and Suno prompts.
+- Resume performance work only if Phase 1 shows stutter.
+- A new friend build (v168) was cut on November 20, 2026 with everything since v159 and the performance log. Keep it fixed while feedback comes in; cut another only after fixes.
+
+### Phase 3: release readiness (later)
+
+- **Windows distribution:** the unsigned EXE will trigger SmartScreen and antivirus warnings; consider code signing, install and uninstall behavior, and Windows 10/11 with Edge or Chrome.
+- **Rights check** on the supplied `Space Blaster.wav`, the menu art and any AI-generated audio, before the repository goes public or the game goes to a store.
+- **Final art and audio review,** then store or platform requirements. A price around $5 has been discussed; there is no store-ready claim.
+
+### Deferred until this roadmap is complete
+
+Veteran Campaign, gear levels, elemental damage and resistances, and additional modes.
+
+### Housekeeping, any time
+
+- Commit and push documentation updates, including the v168 changes (the friend ZIP itself stays out of the repository).
+- Decide whether the GitHub repository is public or private.
+- README and performance-note links into `artifacts/` do not resolve on GitHub (that folder is not in the repository); relink them or include a few key reports.
+- `git gc --prune=now` would reclaim about 3.7 GB of unreachable local objects.
+- The friend ZIP can be attached to a GitHub Release (the file limit there is 2 GB).
+
+## Original priorities
+
 The original priorities remain in this order:
 
-The frozen **v159 Windows friend playtest** is the next review checkpoint. [Friend playtest and next roadmap](FRIEND_PLAYTEST.md) records the handoff, remaining validation and feedback priorities. Development continues separately; keep the friend build fixed.
+The **v168 Windows friend playtest** (with an opt-in performance log; the earlier v159 package stays frozen) is the next review checkpoint. [Friend playtest and next roadmap](FRIEND_PLAYTEST.md) records the handoff, remaining validation and feedback priorities. Development continues separately; keep the friend build fixed.
 
 | Priority | Work | Status |
 | --- | --- | --- |

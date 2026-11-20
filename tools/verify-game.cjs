@@ -284,7 +284,7 @@ function createGame(options = {}) {
   if (options.blockStorageGetter) Object.defineProperty(sandbox, 'localStorage', { get() { throw new Error('SecurityError'); } });
   sandbox.window = sandbox;
   const context = vm.createContext(sandbox);
-  for(const script of ['assets/destruction/manifest.js','assets/destruction/joint-caps.js','destruction.js','input-bindings.js','gamepad.js','controls-ui.js','run-progression.js','run-rewards-ui.js','encounter-tactics.js','stage-rhythm.js','combat-loss.js','ui-text.js','sfx-samples.js'])if(fs.existsSync(path.join(root,script)))vm.runInContext(fs.readFileSync(path.join(root,script),'utf8'),context,{filename:script});
+  for(const script of ['assets/destruction/manifest.js','assets/destruction/joint-caps.js','destruction.js','input-bindings.js','gamepad.js','controls-ui.js','run-progression.js','run-rewards-ui.js','encounter-tactics.js','stage-rhythm.js','combat-loss.js','ui-text.js','diagnostics.js','sfx-samples.js'])if(fs.existsSync(path.join(root,script)))vm.runInContext(fs.readFileSync(path.join(root,script),'utf8'),context,{filename:script});
   vm.runInContext(fs.readFileSync(path.join(root, 'levels.js'), 'utf8'), context, { filename: 'levels.js' });
   vm.runInContext(fs.readFileSync(path.join(root, 'systems.js'), 'utf8'), context, { filename: 'systems.js' });
   const accessors = `
@@ -301,7 +301,7 @@ function createGame(options = {}) {
     get skillPaths(){return skillPaths},get checkpointVersion(){return RUN_CHECKPOINT_VERSION},
     nativeEmissionWeight,relightNativeMaterial,nativeMaterialPalette,
     sectorThreat,hostileDamage,spawnEnemy,enemyFire,bossBuildHealthScale,
-    get nativePaletteCache(){return nativePaletteCache},get nativePaletteLimit(){return NATIVE_PALETTE_LIMIT},
+    get nativePaletteCache(){return nativePaletteCache},get nativePaletteLimit(){return NATIVE_PALETTE_LIMIT},get diagnostics(){return diagnostics},
     get materialEmissionBuffer(){return materialEmissionBuffer},get materialEmissionContext(){return materialEmissionContext},
     openLootGuide,renderLootGuide,drawPickupSprite,gearDropSprite,recolorGearDropMaterial,
     skipBossLabSegment, presentTacticalRetrofit, chooseTacticalRetrofit, tacticalRetrofitChoices,
@@ -875,6 +875,51 @@ test('paused frame time does not catch up on resume', () => {
   assert.equal(isolated.api.time, before);
   isolated.api.pause(); isolated.api.loop(5200);
   assert.ok(Math.abs(isolated.api.time - before - .05) < 1e-6);
+});
+
+test('performance log: loop and part-break hooks stay inert until the player enables it, then record real frames, hitches and part breaks', () => {
+  const g = createGame(); g.api.startBossLab(5); g.api.player.inv = 1e6;
+  const diag = g.api.diagnostics;
+  assert.equal(diag.active, false); assert.equal(diag.enabled, false);
+  for (let i = 0; i <= 90; i++) g.api.loop(100 + i * 1000 / 60);
+  assert.equal(diag.snapshot().sessions.length, 0);
+  assert.equal(g.storage.has('starfighterDiagnosticsSessions'), false); assert.equal(g.storage.has('starfighterDiagnostics'), false, 'No preference is written until the player opts in');
+  diag.setEnabled(true); assert.equal(g.storage.get('starfighterDiagnostics'), '1');
+  let t = 100 + 91 * 1000 / 60;
+  for (let i = 0; i < 120; i++) { t += 1000 / 60; g.api.loop(t); }
+  let s = diag.snapshot().sessions.at(-1);
+  assert.ok(s.frames >= 118 && s.frames <= 121, `Recorded ${s.frames} of 120 frames`);
+  assert.ok(s.interval.p50 >= 16 && s.interval.p50 <= 17, `Median interval ${s.interval.p50}`);
+  assert.ok(s.encounters['boss:5:p1'].frames >= 118, 'Frames are grouped by encounter and phase');
+  // A slow frame keeps the encounter, the counts that explain it, and no save data.
+  t += 120; g.api.loop(t);
+  const slow = diag.snapshot().sessions.at(-1).recent.at(-1);
+  assert.equal(slow.key, 'boss:5:p1'); assert.equal(Math.round(slow.interval), 120);
+  assert.equal(slow.ctx.state, 'playing'); assert.equal(slow.ctx.boss.type, 5); assert.equal(slow.ctx.lab, true);
+  for (const field of ['enemies', 'enemyShots', 'particles', 'debris', 'fragments', 'paletteCache'])assert.ok(Number.isFinite(slow.ctx[field]), 'Context needs ' + field);
+  // A real part break is marked, and tags the next hitch.
+  const boss = g.api.boss, node = g.api.activeWeakNodes(boss).find(n => !n.destroyed);
+  g.api.damageWeakNode(boss, node, node.hp + 1);
+  assert.equal(diag.snapshot().sessions.at(-1).marks['part-break'], 1);
+  t += 90; g.api.loop(t);
+  assert.ok(Number.isFinite(diag.snapshot().sessions.at(-1).recent.at(-1).sinceMark['part-break']), 'The hitch after a break carries its distance from the break');
+  // Pausing resets the clock instead of recording the pause as a hitch; turning the log off stops recording.
+  g.api.pause(); t += 5000; g.api.loop(t); g.api.pause(); t += 16.7; g.api.loop(t); t += 16.7; g.api.loop(t);
+  assert.ok(diag.snapshot().sessions.at(-1).interval.max < 1000, 'A five-second pause is not a hitch');
+  diag.setEnabled(false); const frames = diag.snapshot().sessions.at(-1).frames;
+  for (let i = 0; i < 30; i++) { t += 16.7; g.api.loop(t); }
+  assert.equal(diag.snapshot().sessions.at(-1).frames, frames);
+  const text = diag.exportText();
+  for (const word of ['garage', 'checkpoint', 'RECOVERY', 'hostKey', 'localStorage'])assert.ok(!text.includes(word), 'Export must not contain ' + word);
+});
+
+test('performance log: Flight Manual exposes the controls and remembers the choice', () => {
+  const g = createGame();
+  for (const id of ['diagnostics-group', 'diagnostics-enabled', 'diagnostics-save', 'diagnostics-copy', 'diagnostics-clear', 'diagnostics-status'])assert.ok(g.find('#' + id), id + ' is in Flight Manual');
+  assert.match(g.find('#diagnostics-status').textContent, /^Off\. Turn on before playing/); assert.equal(g.find('#diagnostics-enabled').checked, false);
+  const returning = createGame({ initialStorage: [['starfighterDiagnostics', '1']] });
+  assert.equal(returning.api.diagnostics.enabled, true); assert.equal(returning.find('#diagnostics-enabled').checked, true, 'The choice survives a reload');
+  assert.match(fs.readFileSync(path.join(root, 'flight-school.html'), 'utf8'), /diagnostics\.js\?v=\d+/, 'The practice page loads the same inert module');
 });
 
 test('HUD tolerates out-of-range hull values and remains drawable', () => {
