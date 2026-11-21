@@ -1,5 +1,48 @@
 # Starfighter: Last Signal
 
+An original arcade space shooter that runs in a web browser, with no engine and no dependencies. You fly one fighter through a ten-sector campaign, break each boss's armor core by core, and build a loadout from the gear you recover.
+
+**Play it.** Download the Windows playtest from the [first release](https://github.com/aring87/starfigher/releases/tag/v172), unzip it and double-click the EXE (Windows 10 or 11 with Edge or Chrome; the EXE is unsigned, so Windows will warn you first). Or run the files in this folder with `.\Start-Game.ps1` and open http://127.0.0.1:8765 in a browser.
+
+## Screenshots
+
+<p align="center"><img src="docs/screenshots/title-screen.jpg" alt="Starfighter: Last Signal title screen" width="100%"></p>
+
+| | |
+| --- | --- |
+| <img src="docs/screenshots/gameplay-mission-1.jpg" alt="Mission 1, Shattered Meridian"> | <img src="docs/screenshots/mission-briefing.png" alt="Mission briefing"> |
+| Mission 1, Shattered Meridian: enemy formations, a blue Force crystal drifting in, and the charge and DOSE meters. | The mission briefing names the hazard, the elite and the expected apex boss. |
+| <img src="docs/screenshots/boss-the-bloodstar.jpg" alt="The Bloodstar boss fight"> | <img src="docs/screenshots/boss-void-leviathan.jpg" alt="Void Leviathan boss fight"> |
+| The Bloodstar, the first apex boss. Its glowing cores are the weak points. | The Void Leviathan, with its own arena. Boss armor takes 25% damage, so aim for the cores. |
+
+Both boss shots were taken in the DEV Lab, which lets you jump to any level, elite or boss for testing:
+
+<p align="center"><img src="docs/screenshots/dev-lab.jpg" alt="DEV Lab boss roster" width="80%"></p>
+
+## Loot guide
+
+**LOOT GUIDE** on the main menu shows every pickup the way it looks in a mission, with what it does. These two screenshots are the whole guide (it scrolls):
+
+| | |
+| --- | --- |
+| <img src="docs/screenshots/loot-guide-1.png" alt="Loot Guide, first half"> | <img src="docs/screenshots/loot-guide-2.png" alt="Loot Guide, second half"> |
+
+| Pickup | What it does (as written in the game) |
+| --- | --- |
+| Red Force crystal | Equips or upgrades the detachable Force gun. Direct fire; Level 3 penetrates. |
+| Blue Force crystal | Equips or upgrades blue Force lasers. Higher levels ricochet. |
+| Yellow Force crystal | Equips or upgrades guided yellow wave rays. Force 2 unlocks in mission 2; Force 3 in mission 4. |
+| Missile module | Adds homing missiles. From mission 2, formation leaders carry your first launcher if missing. A second launcher can drop from mission 3. |
+| Defense Bit | Blocks pink shots above or below the fighter; amber fire pierces it. Formation leaders carry a missing first Bit from mission 3. Red Force adds Bit shots. |
+| Aegis Ward | Adds one shield charge, up to four. Each absorbs one hit. Surplus pickups grant 2% DOSE. |
+| Common Asterprint | Grey equipment cache. Field drops; one stat roll. Bank it for the Garage. |
+| Uncommon Asterprint | Green equipment cache. Field drops and the usual miniboss reward; one stat roll. |
+| Rare Asterprint | Blue equipment cache. Usual apex reward or a lucky elite reward; two stat rolls. |
+| Super Rare Asterprint | Purple equipment cache. Upgraded apex reward; two stat rolls. |
+| Exotic Asterprint | Gold equipment cache. Secret epic reward only; three stat rolls. |
+
+Drop rates, gear slots, sets and the Garage are covered in [Asterprint loot and Garage](#asterprint-loot-and-garage) below.
+
 The original [polish roadmap](ROADMAP.md) remains the priority. Veteran Campaign is deferred.
 
 The Windows **v159 friend playtest** is in `releases/v159/Starfighter-Playtest-v159.zip`, with a single EXE containing all game content. It adds current keybinds to every intro drill and an in-game Garage walkthrough after completing the intro, before returning to the mission briefing. [Friend handoff and next roadmap](FRIEND_PLAYTEST.md) records the remaining gates. The older v157 package remains frozen.
