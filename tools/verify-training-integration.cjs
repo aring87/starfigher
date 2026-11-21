@@ -211,21 +211,21 @@ test('every Story New Game asks Play or Skip without touching an existing checkp
 
 test('briefing Play opens isolated practice and graduation visits Garage before the same unlaunched briefing',()=>{
   const g=createGame(),{api,find}=g;api.start('story');api.goMenu();const checkpoint=JSON.stringify(api.profile.checkpoint),inventory=JSON.stringify(api.garage);prepareParentOverlay(g);
-  find('#start-btn').onclick();find('#briefing-training-btn').onclick();assert.ok(api.trainingFrame);assert.match(api.trainingFrame.src,/^flight-school\.html\?v=172&course=intro&/);assert.equal(api.trainingController,null);assert.equal(api.trainingSession,null);assert.equal(api.state,'briefing');assert.equal(JSON.stringify(api.profile.checkpoint),checkpoint);
+  find('#start-btn').onclick();find('#briefing-training-btn').onclick();assert.ok(api.trainingFrame);assert.match(api.trainingFrame.src,/^flight-school\.html\?v=173&course=intro&/);assert.equal(api.trainingController,null);assert.equal(api.trainingSession,null);assert.equal(api.state,'briefing');assert.equal(JSON.stringify(api.profile.checkpoint),checkpoint);
   api.closeFlightSchool(true);assert.equal(api.trainingFrame,null);assert.equal(api.state,'garage');assert.equal(find('#garage-intro-guide').hidden,false);assert.equal(api.profile.progress.introComplete,true);assert.equal(api.profile.progress.trainingComplete,false,'First Flight does not mark the optional advanced school completed');assert.deepEqual(Array.from(api.profile.progress.onboardingSeen),[]);assert.equal(JSON.stringify(api.profile.checkpoint),checkpoint);assert.equal(JSON.stringify(api.garage),inventory);
   find('#garage-intro-skip-btn').onclick();assert.equal(api.state,'briefing');assert.equal(find('#briefing-depart-btn').disabled,false);assert.equal(find('#briefing-intro-choice').hidden,true);assert.equal(JSON.stringify(api.profile.checkpoint),checkpoint);assert.equal(JSON.stringify(api.garage),inventory);
 });
 
 test('main-menu Flight School opens the full course and completion remembers all advanced hints',()=>{
   const g=createGame(),{api,find}=g;api.start('story');api.goMenu();prepareParentOverlay(g);const checkpoint=JSON.stringify(api.profile.checkpoint),inventory=JSON.stringify(api.garage);
-  find('#training-menu-btn').onclick();assert.match(api.trainingFrame.src,/^flight-school\.html\?v=172&course=full&/);assert.equal(api.trainingController,null);assert.equal(api.trainingSession,null);
+  find('#training-menu-btn').onclick();assert.match(api.trainingFrame.src,/^flight-school\.html\?v=173&course=full&/);assert.equal(api.trainingController,null);assert.equal(api.trainingSession,null);
   api.closeFlightSchool(true);assert.equal(api.trainingFrame,null);assert.equal(api.state,'menu');assert.equal(api.profile.progress.trainingComplete,true);assert.deepEqual(Array.from(api.profile.progress.onboardingSeen),ADVANCED_HINT_IDS);assert.equal(JSON.stringify(api.profile.checkpoint),checkpoint);assert.equal(JSON.stringify(api.garage),inventory);
 });
 
 test('partial and complete courses preserve the parent checkpoint and equipment exactly',()=>{
   for(const course of['intro','full'])for(const completed of[false,true]){
     const g=createGame(),{api}=g;api.start('story');api.goMenu();prepareParentOverlay(g);api.profile.progress.onboardingSeen=['shield'];const before=JSON.stringify(api.profile),checkpoint=JSON.stringify(api.profile.checkpoint),inventory=JSON.stringify(api.garage);
-    api.openFlightSchool(false,course);assert.match(api.trainingFrame.src,new RegExp(`^flight-school\\.html\\?v=172&course=${course}&`));assert.equal(JSON.stringify(api.profile),before,'Opening private practice must not alter the parent');api.closeFlightSchool(completed);
+    api.openFlightSchool(false,course);assert.match(api.trainingFrame.src,new RegExp(`^flight-school\\.html\\?v=173&course=${course}&`));assert.equal(JSON.stringify(api.profile),before,'Opening private practice must not alter the parent');api.closeFlightSchool(completed);
     assert.equal(JSON.stringify(api.profile.checkpoint),checkpoint);assert.equal(JSON.stringify(api.garage),inventory);
     if(!completed)assert.equal(JSON.stringify(api.profile),before,'Leaving a partial course must not award completion or change an existing run');
     else if(course==='intro'){assert.equal(api.profile.progress.introComplete,true);assert.equal(api.profile.progress.trainingComplete,false);assert.deepEqual(Array.from(api.profile.progress.onboardingSeen),['shield']);}

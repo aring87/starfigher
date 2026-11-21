@@ -423,7 +423,7 @@ canvas:focus { outline:0; }
 @media (max-width:650px) { .art-inspector { left:3%; right:3%; padding:.5rem; }.art-inspector-heading { font-size:.55rem; }.art-inspector button { padding:.35rem .2rem; font-size:.5rem; }.art-inspect-control { left:70%; font-size:.5rem; } }
 
 /* The supplied key art reserves its dark left side for flight operations. */
-#menu { --menu-art:url('assets/menu/menu-key-art.png'); padding:7% 5.5% 10.5%; background-color:#050611; background-image:linear-gradient(90deg,#03061180 0%,#03061138 34%,#0306110d 54%,transparent 72%),linear-gradient(0deg,#02040ba8 0%,transparent 20%,transparent 88%,#02040b55 100%),var(--menu-art); background-size:cover; background-position:center; backdrop-filter:none; }
+#menu { --menu-art:url('assets/menu/menu-key-art.png'); padding:7% 5.5% 10.5%; background-color:#050611; backdrop-filter:none; overflow:hidden; }
 #menu .menu-topline { left:5.5%; right:5.5%; top:4.5%; padding-bottom:.85cqw; font-size:clamp(.55rem,.72cqw,.9rem); text-shadow:0 1px 5px #000,0 0 12px #000; }
 .menu-top-actions { display:flex; align-items:center; gap:1.5cqw; min-width:0; }
 #menu-progress { color:#b6cad9; font-size:clamp(.5rem,.65cqw,.8rem); letter-spacing:.1em; white-space:nowrap; }
@@ -810,4 +810,85 @@ canvas:focus { outline:0; }
  .garage-screen :is(.equipped-gear,.gear-combo-grid) { grid-template-columns:1fr; }
  .garage-screen .gear-buttons { flex-wrap:wrap; }
  .profile-strip { flex-wrap:wrap; }
+}
+/* v173 UI motion polish. Presentation only: no gameplay, balance, timing or saved data is touched. All of it is switched off by the
+   global .reduced-motion rule above and by prefers-reduced-motion below. Only transform and opacity are animated. */
+#menu::before { content:""; position:absolute; inset:0; z-index:-2; background:var(--menu-art) center/cover no-repeat; transform-origin:68% 52%; animation:menuArtDrift 48s ease-in-out infinite alternate; will-change:transform; }
+#menu::after { content:""; position:absolute; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(90deg,#03061180 0%,#03061138 34%,#0306110d 54%,transparent 72%),linear-gradient(0deg,#02040ba8 0%,transparent 20%,transparent 88%,#02040b55 100%); }
+@keyframes menuArtDrift { to { transform:scale(1.05) translate3d(-1.1%,-.7%,0); } }
+@keyframes uiRise { from { opacity:0; transform:translate3d(0,.9cqw,0); } }
+@keyframes uiSlideIn { from { opacity:0; transform:translate3d(2.2cqw,0,0); } }
+@keyframes uiFade { from { opacity:0; } }
+#menu.active .menu-topline,#menu.active .menu-bottomline { animation:uiFade .6s ease-out .45s backwards; }
+#menu.active .menu-identity > *,.mission-briefing-screen.active .briefing-content > *,.mission-select-screen.active .mission-card,.loot-guide-screen.active .loot-guide-card { animation:uiRise .48s cubic-bezier(.2,.75,.25,1) backwards; }
+#menu.active .menu-identity > :nth-child(1) { animation-delay:0.04s; }
+#menu.active .menu-identity > :nth-child(2) { animation-delay:0.10s; }
+#menu.active .menu-identity > :nth-child(3) { animation-delay:0.15s; }
+#menu.active .menu-identity > :nth-child(4) { animation-delay:0.21s; }
+#menu.active .menu-identity > :nth-child(5) { animation-delay:0.26s; }
+#menu.active .menu-identity > :nth-child(6) { animation-delay:0.32s; }
+#menu.active .menu-identity > :nth-child(7) { animation-delay:0.37s; }
+#menu.active .menu-identity > :nth-child(8) { animation-delay:0.42s; }
+.mission-briefing-screen.active .briefing-content > :nth-child(1) { animation-delay:0.05s; }
+.mission-briefing-screen.active .briefing-content > :nth-child(2) { animation-delay:0.11s; }
+.mission-briefing-screen.active .briefing-content > :nth-child(3) { animation-delay:0.16s; }
+.mission-briefing-screen.active .briefing-content > :nth-child(4) { animation-delay:0.22s; }
+.mission-briefing-screen.active .briefing-content > :nth-child(5) { animation-delay:0.27s; }
+.mission-briefing-screen.active .briefing-content > :nth-child(6) { animation-delay:0.33s; }
+.mission-briefing-screen.active .briefing-content > :nth-child(7) { animation-delay:0.38s; }
+.mission-briefing-screen.active .briefing-content > :nth-child(8) { animation-delay:0.43s; }
+.mission-briefing-screen.active .briefing-visual { animation:uiSlideIn .55s cubic-bezier(.2,.75,.25,1) .2s backwards; }
+.mission-select-screen.active .mission-card:nth-child(1) { animation-delay:0.10s; }
+.mission-select-screen.active .mission-card:nth-child(2) { animation-delay:0.14s; }
+.mission-select-screen.active .mission-card:nth-child(3) { animation-delay:0.18s; }
+.mission-select-screen.active .mission-card:nth-child(4) { animation-delay:0.22s; }
+.mission-select-screen.active .mission-card:nth-child(5) { animation-delay:0.26s; }
+.mission-select-screen.active .mission-card:nth-child(6) { animation-delay:0.30s; }
+.mission-select-screen.active .mission-card:nth-child(7) { animation-delay:0.34s; }
+.mission-select-screen.active .mission-card:nth-child(8) { animation-delay:0.38s; }
+.mission-select-screen.active .mission-card:nth-child(9) { animation-delay:0.42s; }
+.mission-select-screen.active .mission-card:nth-child(10) { animation-delay:0.46s; }
+.loot-guide-screen.active .loot-guide-card:nth-child(1) { animation-delay:0.10s; }
+.loot-guide-screen.active .loot-guide-card:nth-child(2) { animation-delay:0.14s; }
+.loot-guide-screen.active .loot-guide-card:nth-child(3) { animation-delay:0.17s; }
+.loot-guide-screen.active .loot-guide-card:nth-child(4) { animation-delay:0.21s; }
+.loot-guide-screen.active .loot-guide-card:nth-child(5) { animation-delay:0.24s; }
+.loot-guide-screen.active .loot-guide-card:nth-child(6) { animation-delay:0.28s; }
+.loot-guide-screen.active .loot-guide-card:nth-child(7) { animation-delay:0.31s; }
+.loot-guide-screen.active .loot-guide-card:nth-child(8) { animation-delay:0.35s; }
+.loot-guide-screen.active .loot-guide-card:nth-child(9) { animation-delay:0.38s; }
+.loot-guide-screen.active .loot-guide-card:nth-child(10) { animation-delay:0.42s; }
+.loot-guide-screen.active .loot-guide-card:nth-child(11) { animation-delay:0.45s; }
+.loot-guide-card { transition:transform .18s ease,box-shadow .18s ease; }
+.loot-guide-card:hover { transform:translateY(-.3cqw); box-shadow:0 .8cqw 2cqw #0009,0 0 1.4cqw color-mix(in srgb,var(--loot-color) 28%,transparent); }
+.primary:active:not(:disabled) { transform:translateY(0) scale(.985); box-shadow:0 0 14px #4ef5ff66; transition-duration:.06s; }
+.mode-card:active { transform:scale(.992); }
+.secondary:hover:not(:disabled) { text-shadow:0 0 12px #4ef5ff55; }
+@keyframes uiPop { from { opacity:0; transform:scale(.6); } }
+#gameover.active > *,.run-complete-screen.active > :not(.completion-seal),.upgrade-screen.active .card { animation:uiRise .48s cubic-bezier(.2,.75,.25,1) backwards; }
+#gameover.active > :nth-child(1) { animation-delay:0.05s; }
+#gameover.active > :nth-child(2) { animation-delay:0.10s; }
+#gameover.active > :nth-child(3) { animation-delay:0.15s; }
+#gameover.active > :nth-child(4) { animation-delay:0.20s; }
+#gameover.active > :nth-child(5) { animation-delay:0.25s; }
+#gameover.active > :nth-child(6) { animation-delay:0.30s; }
+#gameover.active > :nth-child(7) { animation-delay:0.35s; }
+#gameover.active > :nth-child(8) { animation-delay:0.40s; }
+#gameover.active > :nth-child(9) { animation-delay:0.45s; }
+#gameover.active > :nth-child(10) { animation-delay:0.50s; }
+.run-complete-screen.active > :nth-child(2) { animation-delay:0.25s; }
+.run-complete-screen.active > :nth-child(3) { animation-delay:0.32s; }
+.run-complete-screen.active > :nth-child(4) { animation-delay:0.39s; }
+.run-complete-screen.active > :nth-child(5) { animation-delay:0.46s; }
+.upgrade-screen.active .card:nth-child(1) { animation-delay:0.18s; }
+.upgrade-screen.active .card:nth-child(2) { animation-delay:0.26s; }
+.upgrade-screen.active .card:nth-child(3) { animation-delay:0.34s; }
+.upgrade-screen.active .card:nth-child(4) { animation-delay:0.42s; }
+.run-complete-screen.active .completion-seal { animation:uiPop .6s cubic-bezier(.2,1.2,.3,1) .05s backwards; }
+@keyframes uiDialogIn { from { opacity:0; transform:translate3d(0,12px,0) scale(.985); } }
+#flight-deck[open],#controls-dialog[open] { animation:uiDialogIn .26s cubic-bezier(.2,.75,.25,1) backwards; }
+#flight-deck[open]::backdrop { animation:uiFade .26s ease-out backwards; }
+.reduced-motion #flight-deck::backdrop { animation:none !important; }
+@media (prefers-reduced-motion: reduce) {
+  #menu::before,#flight-deck[open],#controls-dialog[open],#flight-deck[open]::backdrop,#gameover.active > *,.run-complete-screen.active > :not(.completion-seal),.run-complete-screen.active .completion-seal,.upgrade-screen.active .card,#menu.active .menu-topline,#menu.active .menu-bottomline,#menu.active .menu-identity > *,.mission-briefing-screen.active .briefing-content > *,.mission-briefing-screen.active .briefing-visual,.mission-select-screen.active .mission-card,.loot-guide-screen.active .loot-guide-card { animation:none !important; }
 }
