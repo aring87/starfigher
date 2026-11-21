@@ -14,10 +14,12 @@ An original arcade space shooter that runs in a web browser, with no engine and 
 | Mission 1, Shattered Meridian: enemy formations, a blue Force crystal drifting in, and the charge and DOSE meters. | The mission briefing names the hazard, the elite and the expected apex boss. |
 | <img src="docs/screenshots/boss-the-bloodstar.jpg" alt="The Bloodstar boss fight"> | <img src="docs/screenshots/boss-void-leviathan.jpg" alt="Void Leviathan boss fight"> |
 | The Bloodstar, the first apex boss. Its glowing cores are the weak points. | The Void Leviathan, with its own arena. Boss armor takes 25% damage, so aim for the cores. |
+| <img src="docs/screenshots/garage-1.png" alt="Garage with a full Vanguard set equipped"> | <img src="docs/screenshots/garage-2.png" alt="Garage stored gear columns"> |
+| The Garage: four equipped pieces make a full Vanguard set, with each item's perk and Signal Power. | Stored gear in four columns, with trade-offs shown when you compare an item with what is equipped. |
+| <img src="docs/screenshots/mission-select.png" alt="Mission Select with five missions cleared"> | <img src="docs/screenshots/dev-lab.jpg" alt="DEV Lab boss roster"> |
+| Mission Select, replaying cleared sectors with your Garage loadout. | The DEV Lab, where you can jump to any level, elite or boss for testing. |
 
-Both boss shots were taken in the DEV Lab, which lets you jump to any level, elite or boss for testing:
-
-<p align="center"><img src="docs/screenshots/dev-lab.jpg" alt="DEV Lab boss roster" width="80%"></p>
+The boss shots come from the DEV Lab's boss test, so their HUD says "Boss Lab" and "Test Mode". The Garage and Mission Select screenshots use a demo save made with the game's own gear generator and the first five missions marked cleared; a new pilot starts with an empty Garage.
 
 ## Loot guide
 
